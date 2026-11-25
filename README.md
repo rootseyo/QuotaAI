@@ -1,22 +1,15 @@
-# AgentMeter
+# QuotaAI
 
-A tiny macOS menu bar app (no Dock icon) that keeps your AI coding usage limits
-visible at a glance — Codex/ChatGPT (one or several accounts), Cursor, Claude
-Code, and Gemini, Claude API spending and token usage, plus pay-as-you-go balances for OpenRouter, DeepSeek, Kimi,
-Z.ai, and Venice — with a dropdown showing detailed meters, reset countdowns,
-and balances. Your coding agents can read the same numbers through a small
-read-only CLI.
+QuotaAI is a macOS menu bar app for seeing how much AI coding quota you have
+left. It shows remaining percentages, reset times, and API spend or balances.
+A read-only CLI gives scripts and coding agents access to the same usage data.
 
-The menu bar shows the most constrained window per enabled provider, e.g.:
+The default menu bar view shows the 5-hour limit on top and the weekly limit
+below for providers with both windows. Settings lists each provider and lets
+you choose which ones appear in the menu bar.
 
-```
-Cx 5% · CxW 62% · Cu 20% · Cl 40% · OR $8.06
-```
-
-<p align="center">
-  <img src="Resources/screenshot-dropdown.png" alt="AgentMeter dropdown showing Codex and Cursor usage meters with provider badges, percent-left display, and exact reset times" width="360" />
-  <img src="Resources/screenshot-settings.png" alt="AgentMeter Settings window, Providers tab, with per-provider mode, menu bar visibility, and credential status" width="400" />
-</p>
+QuotaAI is based on [AgentMeter](https://github.com/fdtorres1/AgentMeter) by
+Felix Torres. See the [MIT license](LICENSE).
 
 ## Providers
 
@@ -41,18 +34,18 @@ percentage to measure.
 
 In **Settings → Providers → Claude API**, save an organization Admin API key
 or an eligible personal/service-account key that is not scoped to a workspace.
-AgentMeter stores the key in its own macOS Keychain item and only sends read-only
+QuotaAI stores the key in its own macOS Keychain item and only sends read-only
 report requests to Anthropic. Ordinary workspace keys and individual accounts
 cannot use the reporting API. These reports cover the organization, not just
 requests made with the saved key. Claude Code subscription limits remain in the
 separate **Claude** entry.
 
 Spending covers the current calendar month in UTC, excludes Priority Tier
-costs, and may lag the Anthropic website. AgentMeter shows the returned report
+costs, and may lag the Anthropic website. QuotaAI shows the returned report
 cutoff and flags when today's totals are not yet fully reported. "Last checked"
-means when AgentMeter fetched the report, not how current Anthropic's data is.
+means when QuotaAI fetched the report, not how current Anthropic's data is.
 Reports are cached for five
-minutes during automatic polling. The Refresh button and `agentmeter refresh`
+minutes during automatic polling. The Refresh button and `quotaai refresh`
 bypass that cache; after an API failure, retries wait one minute. Input tokens
 exclude cache reads and cache creation, which have their
 own rows. **Prepaid credits are not inferred from spending**: use the billing
@@ -74,7 +67,7 @@ refreshes on wake.
 - **Never cries wolf** — if a provider briefly fails to respond, the last
   known numbers stay visible (dimmed, with a "stale since…" note) instead of
   an alarming error in your menu bar.
-- **Knows what key you pasted** — AgentMeter detects the key type (for
+- **Knows what key you pasted** — QuotaAI detects the key type (for
   example Venice Admin vs. Inference, OpenRouter management vs. standard) and
   explains in plain language what it can do, always recommending the
   least-privileged key that works.
@@ -89,34 +82,34 @@ refreshes on wake.
   windows. See [docs/CODEX_ACCOUNTS.md](docs/CODEX_ACCOUNTS.md).
 - **Stays current** — Sparkle auto-updates from signed, notarized releases.
 - **Your agents can read it too** — an opt-in, read-only JSON snapshot, an
-  `agentmeter` CLI, and a drop-in agent skill let scripts and coding agents
+  `quotaai` CLI, and a drop-in agent skill let scripts and coding agents
   check remaining quota before starting a big task. See
   [docs/AGENT_INTERFACE.md](docs/AGENT_INTERFACE.md).
 - **Bilingual** — English and Spanish, following your macOS language.
 
 ## Privacy and trust
 
-AgentMeter is open source (MIT) so you can verify exactly what it does:
+QuotaAI is open source (MIT) so you can verify exactly what it does:
 
 - For Cursor, Claude, and Gemini, credentials are **read fresh on each
   refresh** from the locations the official CLIs/apps already use. They are
-  **never written anywhere** by AgentMeter and never leave your machine except
+  **never written anywhere** by QuotaAI and never leave your machine except
   as the `Authorization`/`Cookie` header on the request to that provider's own
   API.
 - For API-key providers (OpenRouter, DeepSeek, Kimi, Z.ai, Venice), the key you
   provide is stored **only in your macOS Keychain** as an item private to
-  AgentMeter, shown masked in Settings, removable with one click, and sent
+  QuotaAI, shown masked in Settings, removable with one click, and sent
   only to that provider's own API. We recommend creating a dedicated key named
-  "AgentMeter" so you can revoke it independently. OpenRouter can instead be
+  "QuotaAI" so you can revoke it independently. OpenRouter can instead be
   connected via OAuth, which provisions its own revocable key without you
   handling one at all.
-- For Codex, AgentMeter never touches tokens at all: it launches your own
+- For Codex, QuotaAI never touches tokens at all: it launches your own
   `codex` CLI for about a second and asks it over its documented JSON-RPC
   protocol; Codex handles auth and talks to OpenAI itself. Session-log
-  parsing remains as a fully offline fallback. AgentMeter never performs
+  parsing remains as a fully offline fallback. QuotaAI never performs
   logins — you sign in extra accounts with `codex login` yourself.
 - Nothing runs in the background besides the menu bar app itself: the Codex
-  helper exits after each ~1-second query, and the `agentmeter` CLI is a
+  helper exits after each ~1-second query, and the `quotaai` CLI is a
   read-only client that never sees credentials.
 - No analytics, no telemetry, no accounts.
 
@@ -129,23 +122,18 @@ AgentMeter is open source (MIT) so you can verify exactly what it does:
 
 ## Install
 
-```bash
-brew install --cask fdtorres1/tap/agentmeter
-```
-
-Or download the latest `AgentMeter.zip` from
-[Releases](https://github.com/fdtorres1/AgentMeter/releases/latest), unzip,
-and drag `AgentMeter.app` to `/Applications`. Signed and notarized builds open
-without Gatekeeper warnings, and the app keeps itself up to date (Sparkle).
+When available, download `QuotaAI.zip` from
+[GitHub Releases](https://github.com/rootseyo/QuotaAI/releases), unzip it, and
+drag `QuotaAI.app` to `/Applications`. You can also build it locally.
 
 ### Build from source
 
 ```bash
 swift build              # debug build
 swift test               # unit tests (live-network tests are opt-in)
-scripts/bundle.sh         # builds AgentMeter.app in the repo root
+scripts/bundle.sh         # builds QuotaAI.app in the repo root
 scripts/bundle.sh --install   # also copies it to /Applications
-open AgentMeter.app
+open QuotaAI.app
 ```
 
 Use the "Launch at Login" toggle in Settings → General to start it automatically.
@@ -153,14 +141,14 @@ Use the "Launch at Login" toggle in Settings → General to start it automatical
 ## Multiple Codex accounts
 
 Sign in another account into its own Codex home, then add it in Settings —
-AgentMeter discovers signed-in `~/.codex-*` folders automatically:
+QuotaAI discovers signed-in `~/.codex-*` folders automatically:
 
 ```bash
 mkdir -p ~/.codex-work && CODEX_HOME=~/.codex-work codex login
 ```
 
 Each account becomes its own provider (`Codex — work`, menu bar `CxW`) with
-independent visibility and alerts. AgentMeter never performs the login or
+independent visibility and alerts. QuotaAI never performs the login or
 reads the resulting tokens; it only asks your Codex CLI for the numbers.
 You can also record each subscription's renewal date and billing platform and
 get a reminder a few days before. Full guide:
@@ -168,24 +156,24 @@ get a reminder a few days before. Full guide:
 
 ## Agent & CLI access
 
-Turn on **Settings → General → Enable agent & CLI access** and AgentMeter
+Turn on **Settings → General → Enable agent & CLI access** and QuotaAI
 writes a machine-readable snapshot (usage numbers only — never credentials) to
-`~/Library/Application Support/AgentMeter/status.json` after each refresh. The
+`~/Library/Application Support/QuotaAI/status.json` after each refresh. The
 bundled CLI reads it:
 
 ```bash
-agentmeter status          # human-readable table
-agentmeter status --json   # stable, versioned JSON for scripts/agents
-agentmeter refresh --wait 15
-agentmeter doctor          # redacted troubleshooting report
-agentmeter skill           # prints the agent skill (see below)
+quotaai status          # human-readable table
+quotaai status --json   # stable, versioned JSON for scripts/agents
+quotaai refresh --wait 15
+quotaai doctor          # redacted troubleshooting report
+quotaai skill           # prints the agent skill (see below)
 ```
 
 Every provider — including each Codex account — appears as its own entry with
 usage windows, balance, freshness, plan, account email, and any tracked
 renewal date.
 
-Homebrew puts `agentmeter` on your PATH; otherwise use **Settings → General →
+To put `quotaai` on your PATH, use **Settings → General →
 Install Command-Line Tool…**. The app remains the only process that touches
 credentials or provider APIs — the CLI is a thin, read-only client.
 
@@ -193,7 +181,7 @@ To teach your coding agent to check its own budget before big tasks, install
 the bundled skill (Codex, Claude Code, and Cursor all read this format):
 
 ```bash
-mkdir -p ~/.codex/skills/agentmeter && agentmeter skill > ~/.codex/skills/agentmeter/SKILL.md
+mkdir -p ~/.codex/skills/quotaai && quotaai skill > ~/.codex/skills/quotaai/SKILL.md
 ```
 
 Full schema, skill, and security model in
@@ -201,36 +189,32 @@ Full schema, skill, and security model in
 
 ## Project layout
 
-- `Sources/AgentMeter/Providers/` — one file per provider plus the `UsageProvider`
+- `Sources/QuotaAI/Providers/` — one file per provider plus the `UsageProvider`
   protocol; each reads local credentials and maps the response to `UsageWindow`s.
   `CodexAppServerClient.swift` talks to the Codex CLI; `CodexAccountConfig.swift`
   holds extra-account config and discovery.
-- `Sources/AgentMeter/UsageStore.swift` — dynamic provider list, refresh timer, Codex file watcher, menu bar title and spoken summary.
-- `Sources/AgentMeter/SettingsStore.swift` — visibility, refresh cadence, display/alert preferences, Codex accounts, renewal dates.
-- `Sources/AgentMeter/MenuContent.swift` + `ProviderUsageSections.swift` — dropdown UI (shared with the Usage Details window); `SettingsWindow.swift` — native tabbed Settings.
-- `Sources/AgentMeter/CredentialAssessment.swift` — key-type detection and plain-language explainers.
-- `Sources/AgentMeter/SubscriptionRenewal.swift` — renewal-date model and reminder math.
-- `Sources/AgentMeter/StatusSnapshotWriter.swift` — opt-in `status.json`; `Sources/AgentMeterStatusKit/` — shared snapshot schema, CLI parsing, embedded agent skill; `Sources/agentmeter-cli/` — the read-only CLI.
-- `Sources/AgentMeter/Updater.swift` — Sparkle auto-updates.
+- `Sources/QuotaAI/UsageStore.swift` — dynamic provider list, refresh timer, Codex file watcher, menu bar title and spoken summary.
+- `Sources/QuotaAI/SettingsStore.swift` — visibility, refresh cadence, display/alert preferences, Codex accounts, renewal dates.
+- `Sources/QuotaAI/MenuContent.swift` + `ProviderUsageSections.swift` — dropdown UI (shared with the Usage Details window); `SettingsWindow.swift` — native tabbed Settings.
+- `Sources/QuotaAI/CredentialAssessment.swift` — key-type detection and plain-language explainers.
+- `Sources/QuotaAI/SubscriptionRenewal.swift` — renewal-date model and reminder math.
+- `Sources/QuotaAI/StatusSnapshotWriter.swift` — opt-in `status.json`; `Sources/QuotaAIStatusKit/` — shared snapshot schema, CLI parsing, embedded agent skill; `Sources/quotaai-cli/` — the read-only CLI.
+- `Sources/QuotaAI/Updater.swift` — Sparkle auto-updates.
 - `docs/` — [agent interface](docs/AGENT_INTERFACE.md), [Codex accounts guide](docs/CODEX_ACCOUNTS.md), [agent skill](docs/agent-skill/SKILL.md), [releasing](docs/RELEASING.md).
 - `scripts/bundle.sh` / `scripts/release.sh` — bundling and signed/notarized release.
 - `.github/workflows/` — CI (build + tests); releases are built and notarized locally.
 
 ## En español
 
-AgentMeter habla español — la interfaz sigue el idioma de macOS. Translations
+QuotaAI habla español — la interfaz sigue el idioma de macOS. Translations
 for other languages are welcome: all strings live in a single
-[String Catalog](Sources/AgentMeter/Resources/Localizable.xcstrings), so adding
+[String Catalog](Sources/QuotaAI/Resources/Localizable.xcstrings), so adding
 a language is a JSON-only pull request.
-
-<p align="center">
-  <img src="Resources/screenshot-dropdown-es.png" alt="AgentMeter en español: medidores de uso con tiempos de restablecimiento" width="360" />
-</p>
 
 ## Support
 
-If AgentMeter saves you from a surprise rate limit, you can
-[buy me a coffee](https://www.buymeacoffee.com/fdtorres). Entirely optional.
+If QuotaAI saves you from a surprise rate limit, you can
+[buy me a coffee](https://buymeacoffee.com/seyo). Entirely optional.
 
 ## Credits
 

@@ -1,142 +1,31 @@
-# Releasing AgentMeter
+# Releasing QuotaAI
 
-AgentMeter is distributed as a signed, notarized `.app` (with the `agentmeter`
-CLI inside at `Contents/Helpers/agentmeter`), zipped and attached to a GitHub
-Release together with a Sparkle `appcast.xml`, plus a Homebrew cask. Releases
-are cut **locally** with `scripts/release.sh`; see "Cutting a release" below.
-The GitHub Actions release workflow exists but is manual-dispatch only and has
-no secrets configured.
+For a local build, run `scripts/bundle.sh` and open `QuotaAI.app`. The local
+build uses ad-hoc signing and runs with automatic updates disabled.
 
-## What a release contains
+## Signed releases
 
-| Artifact | Produced by | Notes |
-|----------|-------------|-------|
-| `AgentMeter.app` | `scripts/bundle.sh` | Compiles the String Catalog, builds `AgentMeter` and `agentmeter-cli`, embeds Sparkle.framework, writes Info.plist (version, `agentmeter://` URL scheme, Sparkle keys), signs inside-out: XPC services → Sparkle → `Helpers/agentmeter` → app. |
-| `AgentMeter.zip` | `scripts/release.sh` | `ditto`-zipped, notarized, stapled. |
-| `appcast.xml` | `scripts/release.sh` (`generate_appcast`) | EdDSA-signed Sparkle feed. Must be uploaded with the zip. |
-| Homebrew cask | manual bump in `fdtorres1/homebrew-tap` | `app` + `binary` stanza for the CLI. |
+1. Choose a version and update [CHANGELOG.md](../CHANGELOG.md).
+2. Use a QuotaAI Developer ID Application certificate and notarization
+   credentials. Set `NOTARY_PROFILE`, or set `APPLE_API_KEY_ID`,
+   `APPLE_API_ISSUER`, and `APPLE_API_KEY` (the path to a `.p8` file).
+3. Create an EdDSA signing key for QuotaAI once. Run
+   `.build/artifacts/sparkle/Sparkle/bin/generate_keys --account com.rootseyo.quotaai`
+   and set `QUOTAAI_SPARKLE_PUBLIC_KEY` to the resulting public key.
+4. Run `scripts/release.sh` with `SIGN_IDENTITY`, `QUOTAAI_VERSION`, and the
+   credentials configured above. The script signs, notarizes, and staples
+   `QuotaAI.app` and produces `QuotaAI.zip` and `appcast.xml`.
+5. Tag the source as `vX.Y.Z` for that version and publish both files on the
+   [QuotaAI release](https://github.com/rootseyo/QuotaAI/releases). For a
+   public release, Sparkle reads the appcast from the latest release.
+6. Download the published files and verify the app opens and can check for
+   updates.
 
-## One-time setup
+The manual GitHub Actions release workflow takes the same version from the
+tag. Configure the certificate and notarization secrets listed in the
+[workflow](../.github/workflows/release.yml), the repository variable
+`QUOTAAI_SPARKLE_PUBLIC_KEY`, and the secret `QUOTAAI_SPARKLE_PRIVATE_KEY`.
+The private key must match the public key embedded in the app.
 
-### 1. Developer ID certificate
-
-You need an Apple Developer Program membership ($99/yr).
-
-1. In Xcode → Settings → Accounts, or on the Apple Developer site, create a
-   **Developer ID Application** certificate.
-2. Export it from Keychain Access as a `.p12` (right-click the certificate →
-   Export), setting a password.
-3. Find your identity string:
-   ```bash
-   security find-identity -v -p codesigning
-   # e.g. "Developer ID Application: Your Name (TEAMID)"
-   ```
-
-### 2. App Store Connect API key (for notarization)
-
-1. App Store Connect → Users and Access → Integrations → App Store Connect API.
-2. Create a key with the **Developer** role. Download the `.p8` (once only).
-3. Note the **Key ID** and **Issuer ID**.
-
-### 3. Where the credentials live (current setup)
-
-Nothing is stored in GitHub. `scripts/release.sh` reads:
-
-| Credential | Location |
-|------------|----------|
-| Developer ID signing identity | login Keychain; passed as `SIGN_IDENTITY` |
-| App Store Connect API key (`.p8`, base64), Key ID, Issuer ID | 1Password via `op-sa` — vault Sage-Openclaw, item "AgentMeter Notarization (App Store Connect API)" |
-| Sparkle EdDSA private key | login Keychain item "Private key for signing Sparkle updates"; backup in 1Password item "AgentMeter Sparkle EdDSA Private Key" |
-
-If you ever want CI releases instead, `.github/workflows/release.yml` expects
-`MACOS_CERT_P12`, `MACOS_CERT_PASSWORD`, `KEYCHAIN_PASSWORD`, `APPLE_API_KEY`
-(base64 `.p8`), `APPLE_API_KEY_ID`, and `APPLE_API_ISSUER` as repository
-secrets.
-
-## Sparkle auto-updates
-
-Releases from v1.4.0 onward include a Sparkle appcast:
-
-- `scripts/release.sh` runs `generate_appcast` (from the SPM Sparkle artifact),
-  which signs the zip with the **EdDSA private key stored in the login
-  Keychain** (item: "Private key for signing Sparkle updates"). The matching
-  public key is embedded in Info.plist (`SUPublicEDKey` in `scripts/bundle.sh`).
-- Upload **both** `AgentMeter.zip` and `appcast.xml` as release assets. The
-  app's feed URL is `releases/latest/download/appcast.xml`, so the newest
-  release's appcast is always the one served.
-- **Back up the private key** (`generate_keys -x backup-file` from
-  `.build/artifacts/sparkle/Sparkle/bin/`). If it is lost, shipped apps can
-  never auto-update again (the public key baked into them won't match) and
-  users would need one manual reinstall. Store the backup somewhere safe
-  (e.g. 1Password), never in the repo.
-
-## Homebrew cask
-
-After publishing a release, bump the cask in
-[fdtorres1/homebrew-tap](https://github.com/fdtorres1/homebrew-tap):
-update `version` and `sha256` (`shasum -a 256 AgentMeter.zip`) in
-`Casks/agentmeter.rb` and push. Keep the
-`binary "#{appdir}/AgentMeter.app/Contents/Helpers/agentmeter"` stanza — it is
-what puts the CLI on users' PATH. Existing installs auto-update via Sparkle
-regardless (`auto_updates true`), so the cask matters mainly for new installs.
-The `/tmp/homebrew-tap` clone may not survive between sessions; reclone it.
-
-## Cutting a release (local — the actual flow)
-
-Releases are cut locally, not via CI (`.github/workflows/release.yml` is
-manual-dispatch only and its secrets are not configured). The signing identity
-lives in the login keychain; notarization credentials are fetched from
-1Password by `release.sh` automatically (via `op-sa`, vault Sage-Openclaw, item
-"AgentMeter Notarization (App Store Connect API)").
-
-1. Update `CHANGELOG.md` with the new version. Run `swift test` (all green)
-   and, for user-visible changes, install a dev bundle
-   (`AGENTMETER_VERSION=X.Y.Z-dev scripts/bundle.sh --install`) and verify with
-   `open` + `agentmeter status`.
-2. Commit and push `main` (`git checkout -- AgentMeter.zip` first if a previous
-   release left the tracked zip modified).
-3. Build + sign + notarize + appcast:
-   ```bash
-   export SIGN_IDENTITY="Developer ID Application: Felix Torres (77Z6XS8JU8)"
-   export AGENTMETER_VERSION=X.Y.Z
-   scripts/release.sh   # notarization creds pulled from op-sa
-   ```
-   (Approve the Sparkle Keychain prompt with "Always Allow" if it appears.)
-   To override op-sa, set `APPLE_API_KEY`/`APPLE_API_KEY_ID`/`APPLE_API_ISSUER`
-   or `NOTARY_PROFILE` and the script uses those instead.
-4. Tag and publish with BOTH assets:
-   ```bash
-   git tag vX.Y.Z && git push origin vX.Y.Z
-   gh release create vX.Y.Z AgentMeter.zip appcast.xml \
-     --title "AgentMeter X.Y.Z" --notes "..."
-   ```
-5. Bump the Homebrew cask (see above).
-6. Install locally to verify (`cp -R AgentMeter.app /Applications/`; check
-   `agentmeter --version` reports the new version); update the roadmap
-   (pinned issue #1) and close the milestone if any.
-
-Versioning: MINOR for features (new providers, agent interface, accounts),
-PATCH for fixes and small UX follow-ups shipped the same day.
-
-### Local packaging checks
-
-- Use the complete `scripts/bundle.sh` flow. It adds
-  `@executable_path/../Frameworks` to the executable's runtime search paths;
-  replacing the executable afterward loses that step and can prevent Sparkle
-  from loading. Verify the packaged executable with `otool -l` before signing.
-- Build and sign outside iCloud Documents if File Provider adds Finder metadata
-  that causes code signing to reject the bundle. A clean `/private/tmp` source
-  checkout is suitable for release staging.
-- Verify the final bundle's signature and notarization, then launch the installed
-  app and check `agentmeter doctor` plus a fresh `agentmeter refresh --wait 15`
-  snapshot. A valid signature alone does not prove the app can launch.
-- Before the launch check, temporarily rename the staging checkout's `.build`
-  directory so SwiftPM's generated absolute resource fallback cannot resolve.
-  The installed app must launch and refresh using only its embedded resources.
-  Restore the directory afterward. `L()` resolves the packaged resource bundle
-  under `Contents/Resources`; SwiftPM's generated `Bundle.module` alone looks
-  in a different location and can mask a broken package while build files exist.
-
-## Before first publish (historical — already done)
-
-- Buy Me a Coffee slug is set (`buymeacoffee.com/fdtorres`).
+The generated app, archive, and appcast belong in release assets and local
+build output. Keep credential files outside the repository.

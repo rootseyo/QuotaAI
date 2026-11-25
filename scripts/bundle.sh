@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Builds AgentMeter.app (menu-bar-only bundle) into the repo root.
+# Builds QuotaAI.app (menu-bar-only bundle) into the repo root.
 #
 # Usage:
 #   scripts/bundle.sh [--install]
@@ -7,18 +7,28 @@
 #
 # Optional environment for signing (used by scripts/release.sh and CI):
 #   SIGN_IDENTITY   Developer ID Application identity; defaults to ad-hoc "-"
+#   QUOTAAI_SPARKLE_PUBLIC_KEY   Base64-encoded Sparkle update signing public key
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-APP_NAME="AgentMeter"
-BUNDLE_ID="com.felixtorres.agentmeter"
-VERSION="${AGENTMETER_VERSION:-1.0}"
+APP_NAME="QuotaAI"
+BUNDLE_ID="com.rootseyo.quotaai"
+VERSION="${QUOTAAI_VERSION:-1.0}"
 SIGN_IDENTITY="${SIGN_IDENTITY:--}"
+SPARKLE_PUBLIC_KEY="${QUOTAAI_SPARKLE_PUBLIC_KEY:-}"
+AUTOMATIC_UPDATES=false
+if [[ "$SIGN_IDENTITY" != "-" && -n "$SPARKLE_PUBLIC_KEY" ]]; then
+    if [[ ! "$SPARKLE_PUBLIC_KEY" =~ '^[A-Za-z0-9+/]{43}=$' ]]; then
+        echo "error: QUOTAAI_SPARKLE_PUBLIC_KEY must be a base64-encoded Ed25519 public key" >&2
+        exit 1
+    fi
+    AUTOMATIC_UPDATES=true
+fi
 
 # Compile Spanish strings from the catalog; en.lproj is checked in separately.
-xcrun xcstringstool compile Sources/AgentMeter/Resources/Localizable.xcstrings \
-    --output-directory Sources/AgentMeter/Resources
+xcrun xcstringstool compile Sources/QuotaAI/Resources/Localizable.xcstrings \
+    --output-directory Sources/QuotaAI/Resources
 
 swift build -c release
 
@@ -27,11 +37,11 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks"
 
 cp ".build/release/${APP_NAME}" "$APP/Contents/MacOS/${APP_NAME}"
-# CLI ships in Helpers/ (not MacOS/) because "agentmeter" and "AgentMeter"
+# CLI ships in Helpers/ (not MacOS/) because "quotaai" and "QuotaAI"
 # collide on case-insensitive filesystems.
 mkdir -p "$APP/Contents/Helpers"
-cp ".build/release/agentmeter-cli" "$APP/Contents/Helpers/agentmeter"
-RESOURCE_BUNDLE=".build/release/AgentMeter_AgentMeter.bundle"
+cp ".build/release/quotaai-cli" "$APP/Contents/Helpers/quotaai"
+RESOURCE_BUNDLE=".build/release/QuotaAI_QuotaAI.bundle"
 if [[ ! -d "$RESOURCE_BUNDLE" ]]; then
     echo "error: required resource bundle missing: $RESOURCE_BUNDLE" >&2
     exit 1
@@ -87,19 +97,22 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 			<string>${BUNDLE_ID}.oauth</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>agentmeter</string>
+				<string>quotaai</string>
 			</array>
 		</dict>
 	</array>
-	<key>SUFeedURL</key>
-	<string>https://github.com/fdtorres1/AgentMeter/releases/latest/download/appcast.xml</string>
-	<key>SUPublicEDKey</key>
-	<string>pwHih7xHwBmiGn3ky45I4HSoDDJEYPxB3ltBcptRnwE=</string>
+	<key>QuotaAIUpdatesEnabled</key>
+	<${AUTOMATIC_UPDATES}/>
 	<key>SUEnableAutomaticChecks</key>
-	<true/>
+	<${AUTOMATIC_UPDATES}/>
 </dict>
 </plist>
 PLIST
+
+if [[ "$AUTOMATIC_UPDATES" == true ]]; then
+    /usr/libexec/PlistBuddy -c "Add :SUFeedURL string https://github.com/rootseyo/QuotaAI/releases/latest/download/appcast.xml" "$APP/Contents/Info.plist"
+    /usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $SPARKLE_PUBLIC_KEY" "$APP/Contents/Info.plist"
+fi
 
 # Sign. Ad-hoc ("-") for local dev; Developer ID for distribution.
 # --options runtime enables the hardened runtime required for notarization.
@@ -107,7 +120,7 @@ PLIST
 # --deep is discouraged, so sign inside-out.
 if [[ "$SIGN_IDENTITY" == "-" ]]; then
     codesign --force --sign - "$APP/Contents/Frameworks/Sparkle.framework"
-    codesign --force --sign - "$APP/Contents/Helpers/agentmeter"
+    codesign --force --sign - "$APP/Contents/Helpers/quotaai"
     codesign --force --sign - "$APP"
 else
     for xpc in "$APP/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/"*.xpc; do
@@ -118,7 +131,7 @@ else
         "$APP/Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app" \
         "$APP/Contents/Frameworks/Sparkle.framework"
     codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" \
-        "$APP/Contents/Helpers/agentmeter"
+        "$APP/Contents/Helpers/quotaai"
     codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" "$APP"
 fi
 

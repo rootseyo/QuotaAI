@@ -1,10 +1,10 @@
-# AgentMeter — Agent Context
+# QuotaAI — Agent Context
 
 macOS menu bar app (SwiftUI, Swift Package, macOS 14+) showing AI coding usage
 limits for Codex (multiple accounts), Cursor, Claude Code, Gemini, Claude API reporting, and
 pay-as-you-go balances for OpenRouter, DeepSeek, Kimi, Z.ai, and Venice.
-Public repo: https://github.com/fdtorres1/AgentMeter. Current release line:
-1.12.x (see CHANGELOG.md). Test suite: 164 tests (`swift test`).
+Repository: https://github.com/rootseyo/QuotaAI. Upstream release history lives in
+CHANGELOG.md. Run the test suite with `swift test`.
 
 **If `HANDOFF.md` exists in the repo root, read it first.** It is the
 gitignored, machine-local session handoff (current state, pending work,
@@ -12,7 +12,7 @@ announcement drafts, environment specifics) and complements this file.
 
 ## Architecture
 
-- One file per provider in `Sources/AgentMeter/Providers/`, each implementing
+- One file per provider in `Sources/QuotaAI/Providers/`, each implementing
   the `UsageProvider` protocol (`id`, `displayName`, `shortCode`, `isDetected`,
   `fetch() -> ProviderUsage`, optional `assessCredential()`,
   `credentialHelpText`, `apiKeyPlaceholder`, `dashboardURL`). Built by
@@ -34,7 +34,7 @@ announcement drafts, environment specifics) and complements this file.
 - UI: `MenuContent` (dropdown with a display-bounded scrolling provider list
   and a fixed footer; short lists shrink to their content; provider sections live in
   `ProviderUsageSections.swift` and are shared with `UsageDetailsView`, the
-  ⌘D / `agentmeter://details` window), `SettingsWindow` (native tabbed
+  ⌘D / `quotaai://details` window), `SettingsWindow` (native tabbed
   Settings: General / Providers / Display / Alerts; includes
   `CodexAccountsSection` with auto-discovery of `~/.codex-*` homes and
   `CodexSubscriptionSettings`), `AboutWindow`. Menu bar title is a rendered
@@ -44,16 +44,16 @@ announcement drafts, environment specifics) and complements this file.
   spoken qualifiers), `NotificationManager` (`ThresholdTracker`,
   `RenewalTracker`), `SubscriptionRenewal` (anniversary math; billing dates
   are NEVER merged with usage windows), `ErrorRedaction`, `Diagnostics`,
-  `DebugLog` (`AGENTMETER_DEBUG=1` stderr tracing; never credentials).
+  `DebugLog` (`QUOTAAI_DEBUG=1` stderr tracing; never credentials).
 - Agent/CLI interface (v1.9.0): opt-in `status.json` snapshot in Application
   Support written by `StatusSnapshotWriter` after each refresh; shared schema
-  lives in the `AgentMeterStatusKit` library target; `agentmeter-cli` is a
-  read-only executable product installed as `Contents/Helpers/agentmeter`.
-  GOTCHA: the product MUST stay named `agentmeter-cli` and ship in `Helpers/`
-  — "agentmeter" and "AgentMeter" clobber each other on case-insensitive APFS
+  lives in the `QuotaAIStatusKit` library target; `quotaai-cli` is a
+  read-only executable product installed as `Contents/Helpers/quotaai`.
+  GOTCHA: the product MUST stay named `quotaai-cli` and ship in `Helpers/`
+  — "quotaai" and "QuotaAI" clobber each other on case-insensitive APFS
   (both in `.build/release/` and in `Contents/MacOS/`). Schema doc:
   docs/AGENT_INTERFACE.md (additive changes only within schemaVersion 1).
-  `agentmeter skill` prints `docs/agent-skill/SKILL.md`, embedded as
+  `quotaai skill` prints `docs/agent-skill/SKILL.md`, embedded as
   `AgentSkill.markdown` — a test enforces byte identity, so edit the .md and
   regenerate the Swift constant together (see Conventions).
 
@@ -72,14 +72,14 @@ announcement drafts, environment specifics) and complements this file.
   every 5 min per account (`CodexAppServerClient.pollInterval`), cached in
   `CodexAccountCache`. Extra accounts = `CodexAccountConfig` entries in
   `SettingsStore.codexExtraAccounts`, each with its own `CODEX_HOME`; the
-  user signs in via `mkdir -p <home> && CODEX_HOME=<home> codex login` (Codex refuses a nonexistent CODEX_HOME) — AgentMeter never logs
+  user signs in via `mkdir -p <home> && CODEX_HOME=<home> codex login` (Codex refuses a nonexistent CODEX_HOME) — QuotaAI never logs
   in or reads auth.json. The protocol has NO account-switch method;
   `~/.codex/accounts.json` is written by the Codex desktop app only.
   FALLBACK (primary account only): parse newest
   `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl` backwards for the last
   `rate_limits` snapshot (`primary`/`secondary`, `used_percent`, `resets_at`,
   `plan_type`); also preferred when its timestamp is newer than the cache.
-  `agentmeter` tracing: `AGENTMETER_DEBUG=1` (DebugLog) prints structural
+  `quotaai` tracing: `QUOTAAI_DEBUG=1` (DebugLog) prints structural
   info to stderr — NOTE: when launched directly from a shell (not via `open`)
   the initial refresh may not complete; test with `open`.
 - **Cursor**: reads `cursorAuth/accessToken` from
@@ -148,74 +148,36 @@ swift build                 # NOTE: run outside the tool sandbox; SwiftPM's own
                             # Operation not permitted". Use full permissions.
 swift test                  # live-network tests are opt-in via env
                             # (CURSOR_LIVE_TEST=1) and skip by default.
-scripts/bundle.sh [--install]   # builds AgentMeter.app (ad-hoc signed by default)
+scripts/bundle.sh [--install]   # builds QuotaAI.app (ad-hoc signed by default)
 ```
 
 - CI (`.github/workflows/ci.yml`) runs build+test on `macos-15` for push/PR.
 - `.github/workflows/release.yml` is manual-dispatch only; releases are cut
   LOCALLY (see runbook below), so its signing secrets are not configured.
 
-## Release runbook (the actual, tested end-to-end flow)
+## Releases
 
-Releases are cut locally. This is the exact sequence run each time — reproduce
-it faithfully. Full detail in [docs/RELEASING.md](docs/RELEASING.md).
-
-Credentials (do NOT prompt for them):
-- Signing identity: `Developer ID Application: Felix Torres (77Z6XS8JU8)`
-  (login keychain) — pass as `SIGN_IDENTITY`.
-- Notarization (App Store Connect API key, key-id, issuer): stored in 1Password,
-  fetched automatically by `release.sh` via `op-sa` (vault Sage-Openclaw, item
-  "AgentMeter Notarization (App Store Connect API)"; the `.p8` is stored
-  base64 in field `private key b64`). No env vars needed.
-- Sparkle EdDSA signing key: login keychain item "Private key for signing
-  Sparkle updates"; backed up in 1Password (vault Sage-Openclaw, item
-  "AgentMeter Sparkle EdDSA Private Key").
-
-Steps (bump `X.Y.Z`, keep `CHANGELOG.md` updated first):
-1. `git add -A && git commit && git push` on `main`.
-2. Run `SIGN_IDENTITY="Developer ID Application: Felix Torres (77Z6XS8JU8)" \
-   AGENTMETER_VERSION=X.Y.Z scripts/release.sh`. It pulls notarization creds
-   from op-sa, builds, signs (inside-out incl. Sparkle framework), notarizes +
-   waits, staples, zips, and writes a signed `appcast.xml`.
-3. `git tag vX.Y.Z && git push origin vX.Y.Z`.
-4. `gh release create vX.Y.Z AgentMeter.zip appcast.xml --title "AgentMeter X.Y.Z" --notes ...`
-   — BOTH assets; the app's SUFeedURL is `releases/latest/download/appcast.xml`.
-5. Bump the Homebrew cask in the separate repo `fdtorres1/homebrew-tap`
-   (`/tmp/homebrew-tap` clone): update `version` + `sha256`
-   (`shasum -a 256 AgentMeter.zip`), commit, push. The cask has a `binary`
-   stanza for `Contents/Helpers/agentmeter` (added in 1.9.0) — keep it.
-6. Install locally to verify (`cp -R AgentMeter.app /Applications/`), tick the
-   roadmap (issue #1), close the milestone.
-
-Gotchas:
-- `generate_appcast` (in `release.sh`) may trigger a macOS Keychain prompt for
-  the Sparkle key if the Sparkle tool binary changed (e.g. after an SPM
-  re-resolve). Approve with "Always Allow" — it blocks the release until then.
-- `appcast.xml` is gitignored (build artifact); it lives only as a release asset.
-- `.build/`, `*.app/`, `HANDOFF.md` are gitignored. `AgentMeter.zip` IS
-  tracked (historical); `release.sh` overwrites it — run
-  `git checkout -- AgentMeter.zip` before committing unrelated work.
-- `/tmp/homebrew-tap` may be gone between sessions; reclone
-  `https://github.com/fdtorres1/homebrew-tap` before bumping the cask.
-- Running the app binary directly from a shell (for `AGENTMETER_DEBUG`) can
-  leave the initial refresh incomplete; verify behavior with `open`.
+See [docs/RELEASING.md](docs/RELEASING.md) for local signing, notarization,
+and publishing to the QuotaAI GitHub repository. The manual release workflow
+requires the repository's own signing and notarization credentials.
+Generated app bundles, archives, and appcasts are gitignored.
 
 ## Conventions
 
 - Keep PR titles human-readable — the release workflow uses
   `generate_release_notes: true`, so they become the changelog.
-- Public issue tracking only (no Discussions). Roadmap is pinned+locked issue #1.
+- Use GitHub Issues for public bug reports and feature requests.
 - Author commits with a real identity; the repo's initial history was recreated
   once to strip a secret-scanner false positive, so avoid rewriting history.
 - Localization: every user-facing string goes through `L()` and gets en + es
-  entries in `Sources/AgentMeter/Resources/Localizable.xcstrings`; then run
-  `xcrun xcstringstool compile Sources/AgentMeter/Resources/Localizable.xcstrings
-  --output-directory Sources/AgentMeter/Resources` (bundle.sh does this too).
+  entries in `Sources/QuotaAI/Resources/Localizable.xcstrings`; then run
+  `xcrun xcstringstool compile Sources/QuotaAI/Resources/Localizable.xcstrings
+  --output-directory Sources/QuotaAI/Resources` (bundle.sh does this too).
   CLI output and docs are English-only.
 - Agent skill: `docs/agent-skill/SKILL.md` is canonical; after editing it,
-  regenerate `Sources/AgentMeterStatusKit/AgentSkill.swift` so the raw-string
+  regenerate `Sources/QuotaAIStatusKit/AgentSkill.swift` so the raw-string
   constant is byte-identical (`AgentSkillTests` fails otherwise).
-- Snapshot schema (`AgentMeterStatusKit`): additive optional fields only
+- Snapshot schema (`QuotaAIStatusKit`): additive optional fields only
   within `schemaVersion` 1; update docs/AGENT_INTERFACE.md tables and the
   fixture test in the same change.
 - Accessibility: every new meter/row is one accessibility element with a

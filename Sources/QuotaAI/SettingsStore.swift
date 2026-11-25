@@ -1,0 +1,224 @@
+import Foundation
+import Combine
+
+enum CountDirection: String {
+    case used, remaining
+
+    nonisolated func displayPercent(_ usedPercent: Double) -> Double {
+        switch self {
+        case .used: return usedPercent
+        case .remaining: return 100 - usedPercent
+        }
+    }
+
+    nonisolated func percentLabel(_ usedPercent: Double, menuBar: Bool = false) -> String {
+        let value = Int(displayPercent(usedPercent).rounded())
+        switch self {
+        case .used: return L("\(value)%")
+        case .remaining: return menuBar ? L("\(value)%") : L("\(value)% left")
+        }
+    }
+}
+
+enum ResetTimeStyle: String {
+    case relative, absolute
+}
+
+enum MenuBarDisplayStyle: String {
+    case original, twoLineRemaining
+}
+
+enum MenuBarStyle: String {
+    case full, compact, icon
+}
+
+/// User preferences: per-provider visibility and refresh cadence.
+@MainActor
+final class SettingsStore: ObservableObject {
+    @Published var refreshInterval: TimeInterval {
+        didSet { defaults.set(refreshInterval, forKey: Keys.refreshInterval) }
+    }
+
+    @Published var notificationsEnabled: Bool {
+        didSet { defaults.set(notificationsEnabled, forKey: Keys.notificationsEnabled) }
+    }
+
+    @Published var notificationThreshold: Double {
+        didSet { defaults.set(notificationThreshold, forKey: Keys.notificationThreshold) }
+    }
+
+    @Published var countDirection: CountDirection {
+        didSet { defaults.set(countDirection.rawValue, forKey: Keys.countDirection) }
+    }
+
+    @Published var resetTimeStyle: ResetTimeStyle {
+        didSet { defaults.set(resetTimeStyle.rawValue, forKey: Keys.resetTimeStyle) }
+    }
+
+    @Published var balanceNotificationThreshold: Double {
+        didSet { defaults.set(balanceNotificationThreshold, forKey: Keys.balanceNotificationThreshold) }
+    }
+
+    @Published var menuBarStyle: MenuBarStyle {
+        didSet { defaults.set(menuBarStyle.rawValue, forKey: Keys.menuBarStyle) }
+    }
+
+    @Published var menuBarDisplayStyle: MenuBarDisplayStyle {
+        didSet { defaults.set(menuBarDisplayStyle.rawValue, forKey: Keys.menuBarDisplayStyle) }
+    }
+
+    @Published var agentAccessEnabled: Bool {
+        didSet {
+            defaults.set(agentAccessEnabled, forKey: Keys.agentAccessEnabled)
+            if !agentAccessEnabled {
+                StatusSnapshotWriter.deleteSnapshotFile()
+            }
+        }
+    }
+
+    @Published var codexExtraAccounts: [CodexAccountConfig] {
+        didSet {
+            if let data = try? JSONEncoder().encode(codexExtraAccounts) {
+                defaults.set(data, forKey: Keys.codexExtraAccounts)
+            } else {
+                defaults.removeObject(forKey: Keys.codexExtraAccounts)
+            }
+        }
+    }
+
+    @Published var subscriptionRenewals: [String: SubscriptionRenewal] {
+        didSet {
+            if let data = try? JSONEncoder().encode(subscriptionRenewals) {
+                defaults.set(data, forKey: Keys.subscriptionRenewals)
+            } else {
+                defaults.removeObject(forKey: Keys.subscriptionRenewals)
+            }
+        }
+    }
+
+    private let defaults: UserDefaults
+    private var modeCache: [String: ProviderMode] = [:]
+    private var menuBarCache: [String: Bool] = [:]
+
+    static let refreshOptions: [(label: String, seconds: TimeInterval)] = [
+        (L("30 seconds"), 30),
+        (L("1 minute"), 60),
+        (L("5 minutes"), 300),
+    ]
+
+    static let notificationThresholdOptions: [Double] = [70, 80, 90]
+    static let balanceThresholdOptions: [Double] = [1, 5, 10]
+
+    private enum Keys {
+        static let refreshInterval = "refreshInterval"
+        static let notificationsEnabled = "notificationsEnabled"
+        static let notificationThreshold = "notificationThreshold"
+        static let countDirection = "countDirection"
+        static let resetTimeStyle = "resetTimeStyle"
+        static let balanceNotificationThreshold = "balanceNotificationThreshold"
+        static let menuBarStyle = "menuBarStyle"
+        static let menuBarDisplayStyle = "menuBarDisplayStyle"
+        static let agentAccessEnabled = "agentAccessEnabled"
+        static let codexExtraAccounts = "codexExtraAccounts"
+        static let subscriptionRenewals = "subscriptionRenewals"
+        static let compactMenuBar = "compactMenuBar"
+        static func mode(_ id: String) -> String { "provider.\(id).mode" }
+        static func inMenuBar(_ id: String) -> String { "provider.\(id).inMenuBar" }
+    }
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        let stored = defaults.double(forKey: Keys.refreshInterval)
+        self.refreshInterval = stored > 0 ? stored : 60
+        self.notificationsEnabled = defaults.bool(forKey: Keys.notificationsEnabled)
+        let storedThreshold = defaults.double(forKey: Keys.notificationThreshold)
+        self.notificationThreshold = Self.notificationThresholdOptions.contains(storedThreshold)
+            ? storedThreshold
+            : 80
+        let storedDirection = defaults.string(forKey: Keys.countDirection)
+        self.countDirection = storedDirection.flatMap(CountDirection.init(rawValue:)) ?? .remaining
+        let storedResetStyle = defaults.string(forKey: Keys.resetTimeStyle)
+        self.resetTimeStyle = storedResetStyle.flatMap(ResetTimeStyle.init(rawValue:)) ?? .relative
+        let storedBalanceThreshold = defaults.double(forKey: Keys.balanceNotificationThreshold)
+        self.balanceNotificationThreshold = Self.balanceThresholdOptions.contains(storedBalanceThreshold)
+            ? storedBalanceThreshold
+            : 5
+        if let storedStyle = defaults.string(forKey: Keys.menuBarStyle),
+           let style = MenuBarStyle(rawValue: storedStyle) {
+            self.menuBarStyle = style
+        } else if defaults.object(forKey: Keys.compactMenuBar) != nil,
+                  defaults.bool(forKey: Keys.compactMenuBar) {
+            self.menuBarStyle = .compact
+        } else {
+            self.menuBarStyle = .full
+        }
+        self.menuBarDisplayStyle = defaults.string(forKey: Keys.menuBarDisplayStyle)
+            .flatMap(MenuBarDisplayStyle.init(rawValue:)) ?? .twoLineRemaining
+        self.agentAccessEnabled = defaults.bool(forKey: Keys.agentAccessEnabled)
+        if let data = defaults.data(forKey: Keys.codexExtraAccounts),
+           let accounts = try? JSONDecoder().decode([CodexAccountConfig].self, from: data) {
+            self.codexExtraAccounts = accounts
+        } else {
+            self.codexExtraAccounts = []
+        }
+        if let data = defaults.data(forKey: Keys.subscriptionRenewals),
+           let renewals = try? JSONDecoder().decode([String: SubscriptionRenewal].self, from: data) {
+            self.subscriptionRenewals = renewals
+        } else {
+            self.subscriptionRenewals = [:]
+        }
+    }
+
+    func addCodexAccount(_ account: CodexAccountConfig) {
+        codexExtraAccounts.append(account)
+    }
+
+    func removeCodexAccount(id: UUID) {
+        removeRenewal(for: "codex:\(id.uuidString)")
+        codexExtraAccounts.removeAll { $0.id == id }
+    }
+
+    func renewal(for providerID: String) -> SubscriptionRenewal? {
+        subscriptionRenewals[providerID]
+    }
+
+    func setRenewal(_ renewal: SubscriptionRenewal, for providerID: String) {
+        subscriptionRenewals[providerID] = renewal
+    }
+
+    func removeRenewal(for providerID: String) {
+        subscriptionRenewals.removeValue(forKey: providerID)
+    }
+
+    func mode(for providerID: String) -> ProviderMode {
+        if let cached = modeCache[providerID] { return cached }
+        let raw = defaults.string(forKey: Keys.mode(providerID))
+        let mode = raw.flatMap(ProviderMode.init(rawValue:)) ?? .auto
+        modeCache[providerID] = mode
+        return mode
+    }
+
+    func setMode(_ mode: ProviderMode, for providerID: String) {
+        modeCache[providerID] = mode
+        defaults.set(mode.rawValue, forKey: Keys.mode(providerID))
+        objectWillChange.send()
+    }
+
+    func showsInMenuBar(_ providerID: String) -> Bool {
+        if let cached = menuBarCache[providerID] { return cached }
+        let shows: Bool
+        if defaults.object(forKey: Keys.inMenuBar(providerID)) == nil {
+            shows = true
+        } else {
+            shows = defaults.bool(forKey: Keys.inMenuBar(providerID))
+        }
+        menuBarCache[providerID] = shows
+        return shows
+    }
+
+    func setShowsInMenuBar(_ shows: Bool, for providerID: String) {
+        menuBarCache[providerID] = shows
+        defaults.set(shows, forKey: Keys.inMenuBar(providerID))
+        objectWillChange.send()
+    }
+}

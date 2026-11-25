@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Builds, signs (Developer ID), notarizes, staples, and zips AgentMeter.app.
+# Builds, signs (Developer ID), notarizes, staples, and zips QuotaAI.app.
 #
 # Prerequisites (see docs/RELEASING.md):
 #   - A "Developer ID Application" certificate in your login keychain
@@ -7,41 +7,27 @@
 #
 # Required environment:
 #   SIGN_IDENTITY        e.g. "Developer ID Application: Your Name (TEAMID)"
-#   AGENTMETER_VERSION   e.g. 1.0.1 (defaults to 1.0)
+#   QUOTAAI_SPARKLE_PUBLIC_KEY   public key matching the Sparkle keychain signing key
+#   QUOTAAI_VERSION   e.g. 1.0.1 (defaults to 1.0)
 #
-# Notarization credentials are fetched automatically from 1Password via op-sa
-# (item "AgentMeter Notarization (App Store Connect API)" in vault
-# Sage-Openclaw). Override by setting NOTARY_PROFILE, or all of
+# Sparkle signs with the QuotaAI Keychain account by default. CI can supply
+# the private key via QUOTAAI_SPARKLE_PRIVATE_KEY instead.
+# Set NOTARY_PROFILE, or all of
 # APPLE_API_KEY_ID / APPLE_API_ISSUER / APPLE_API_KEY (path to .p8).
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
 : "${SIGN_IDENTITY:?Set SIGN_IDENTITY to your Developer ID Application identity}"
-
-APP="AgentMeter.app"
-ZIP="AgentMeter.zip"
-
-OP_SA="$HOME/.local/bin/op-sa"
-OP_VAULT="Sage-Openclaw"
-OP_ITEM="AgentMeter Notarization (App Store Connect API)"
-NOTARY_KEY_TMP=""
-
-cleanup() { [[ -n "$NOTARY_KEY_TMP" && -f "$NOTARY_KEY_TMP" ]] && rm -P "$NOTARY_KEY_TMP"; }
-trap cleanup EXIT
-
-# Fetch notarization credentials from 1Password unless already provided.
-if [[ -z "${NOTARY_PROFILE:-}" && -z "${APPLE_API_KEY:-}" ]]; then
-    if [[ -x "$OP_SA" ]]; then
-        echo "Fetching notarization credentials from 1Password (op-sa)…"
-        NOTARY_KEY_TMP="$(mktemp -d)/AuthKey.p8"
-        "$OP_SA" item get "$OP_ITEM" --vault "$OP_VAULT" --fields "private key b64" --reveal \
-            | base64 -d > "$NOTARY_KEY_TMP"
-        export APPLE_API_KEY="$NOTARY_KEY_TMP"
-        export APPLE_API_KEY_ID="$("$OP_SA" item get "$OP_ITEM" --vault "$OP_VAULT" --fields "key id")"
-        export APPLE_API_ISSUER="$("$OP_SA" item get "$OP_ITEM" --vault "$OP_VAULT" --fields "issuer id")"
-    fi
+: "${QUOTAAI_SPARKLE_PUBLIC_KEY:?Set QUOTAAI_SPARKLE_PUBLIC_KEY to the QuotaAI update signing public key}"
+if [[ -z "${NOTARY_PROFILE:-}" ]]; then
+    : "${APPLE_API_KEY_ID:?Set NOTARY_PROFILE or APPLE_API_KEY_ID/ISSUER/KEY}"
+    : "${APPLE_API_ISSUER:?Set APPLE_API_ISSUER}"
+    : "${APPLE_API_KEY:?Set APPLE_API_KEY (path to .p8)}"
 fi
+
+APP="QuotaAI.app"
+ZIP="QuotaAI.zip"
 
 # 1. Build + sign with hardened runtime.
 SIGN_IDENTITY="$SIGN_IDENTITY" scripts/bundle.sh
@@ -54,9 +40,6 @@ rm -f "$ZIP"
 if [[ -n "${NOTARY_PROFILE:-}" ]]; then
     xcrun notarytool submit "$ZIP" --keychain-profile "$NOTARY_PROFILE" --wait
 else
-    : "${APPLE_API_KEY_ID:?Set NOTARY_PROFILE or APPLE_API_KEY_ID/ISSUER/KEY}"
-    : "${APPLE_API_ISSUER:?Set APPLE_API_ISSUER}"
-    : "${APPLE_API_KEY:?Set APPLE_API_KEY (path to .p8)}"
     xcrun notarytool submit "$ZIP" \
         --key "$APPLE_API_KEY" \
         --key-id "$APPLE_API_KEY_ID" \
@@ -71,20 +54,27 @@ rm -f "$ZIP"
 
 # 5. Generate the Sparkle appcast, signed with the EdDSA key in the Keychain.
 #    The enclosure URL must point at the versioned release asset.
-VERSION="${AGENTMETER_VERSION:-1.0}"
+VERSION="${QUOTAAI_VERSION:-1.0}"
 GENERATE_APPCAST=$(find .build/artifacts/sparkle -name generate_appcast -type f | head -1)
-if [[ -n "$GENERATE_APPCAST" ]]; then
-    APPCAST_DIR=$(mktemp -d)
-    cp "$ZIP" "$APPCAST_DIR/"
-    "$GENERATE_APPCAST" \
-        --download-url-prefix "https://github.com/fdtorres1/AgentMeter/releases/download/v${VERSION}/" \
-        --maximum-versions 1 \
-        "$APPCAST_DIR"
-    cp "$APPCAST_DIR/appcast.xml" appcast.xml
-    echo "Appcast written to $PWD/appcast.xml"
-else
-    echo "warning: generate_appcast not found; skipping appcast" >&2
+if [[ -z "$GENERATE_APPCAST" ]]; then
+    echo "error: generate_appcast not found" >&2
+    exit 1
 fi
+APPCAST_DIR=$(mktemp -d)
+trap 'rm -rf "$APPCAST_DIR"' EXIT
+cp "$ZIP" "$APPCAST_DIR/"
+appcast_args=(
+    --download-url-prefix "https://github.com/rootseyo/QuotaAI/releases/download/v${VERSION}/"
+    --maximum-versions 1
+    "$APPCAST_DIR"
+)
+if [[ -n "${QUOTAAI_SPARKLE_PRIVATE_KEY:-}" ]]; then
+    printf '%s\n' "$QUOTAAI_SPARKLE_PRIVATE_KEY" | "$GENERATE_APPCAST" --ed-key-file - "${appcast_args[@]}"
+else
+    "$GENERATE_APPCAST" --account com.rootseyo.quotaai "${appcast_args[@]}"
+fi
+cp "$APPCAST_DIR/appcast.xml" appcast.xml
+echo "Appcast written to $PWD/appcast.xml"
 
 echo "Release artifact ready: $PWD/$ZIP"
 xcrun stapler validate "$APP"

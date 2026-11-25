@@ -2,48 +2,49 @@
 import PackageDescription
 
 let package = Package(
-    name: "AgentMeter",
+    name: "QuotaAI",
     defaultLocalization: "en",
     platforms: [.macOS(.v14)],
     products: [
-        // Named case-distinct from the AgentMeter app binary: on the default
-        // case-insensitive APFS, products "AgentMeter" and "agentmeter" would
+        // Named case-distinct from the QuotaAI app binary: on the default
+        // case-insensitive APFS, products "QuotaAI" and "quotaai" would
         // clobber each other in .build. bundle.sh installs it into the app
-        // bundle as Contents/Helpers/agentmeter.
-        .executable(name: "agentmeter-cli", targets: ["agentmeter-cli"]),
+        // bundle as Contents/Helpers/quotaai.
+        .executable(name: "quotaai-cli", targets: ["quotaai-cli"]),
     ],
     dependencies: [
         .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.6.0"),
     ],
     targets: [
         .target(
-            name: "AgentMeterStatusKit",
-            path: "Sources/AgentMeterStatusKit"
+            name: "QuotaAIStatusKit",
+            path: "Sources/QuotaAIStatusKit"
         ),
         .executableTarget(
-            name: "AgentMeter",
+            name: "QuotaAI",
             dependencies: [
-                "AgentMeterStatusKit",
+                "QuotaAIStatusKit",
                 .product(name: "Sparkle", package: "Sparkle"),
             ],
-            path: "Sources/AgentMeter",
-            resources: [.process("Resources")]
+            path: "Sources/QuotaAI",
+            resources: [.process("Resources/en.lproj"), .process("Resources/es.lproj"),
+                        .copy("Resources/Localizable.xcstrings"), .process("Resources/ProviderIcons")]
         ),
         .executableTarget(
-            name: "agentmeter-cli",
-            dependencies: ["AgentMeterStatusKit"],
-            path: "Sources/agentmeter-cli"
+            name: "quotaai-cli",
+            dependencies: ["QuotaAIStatusKit"],
+            path: "Sources/quotaai-cli"
         ),
         .testTarget(
-            name: "AgentMeterStatusKitTests",
-            dependencies: ["AgentMeterStatusKit"],
-            path: "Tests/AgentMeterStatusKitTests",
+            name: "QuotaAIStatusKitTests",
+            dependencies: ["QuotaAIStatusKit"],
+            path: "Tests/QuotaAIStatusKitTests",
             resources: [.process("Fixtures")]
         ),
         .testTarget(
-            name: "AgentMeterTests",
-            dependencies: ["AgentMeter", "AgentMeterStatusKit"],
-            path: "Tests/AgentMeterTests"
+            name: "QuotaAITests",
+            dependencies: ["QuotaAI", "QuotaAIStatusKit"],
+            path: "Tests/QuotaAITests"
         ),
     ]
 )

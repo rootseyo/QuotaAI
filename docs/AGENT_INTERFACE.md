@@ -1,19 +1,19 @@
-# AgentMeter Agent & CLI Interface
+# QuotaAI Agent & CLI Interface
 
-AgentMeter exposes a read-only local interface for scripts and coding agents. The menu bar app is the only process that reads credentials or calls provider APIs. The CLI reads a snapshot file and can poke the app via URL schemes.
+QuotaAI exposes a read-only local interface for scripts and coding agents. The menu bar app is the only process that reads credentials or calls provider APIs. The CLI reads a snapshot file and can poke the app via URL schemes.
 
 ## Security model
 
 - **Opt-in**: snapshot writing is disabled by default (`Settings → General → Enable agent & CLI access`).
 - **No credentials**: the snapshot contains usage percentages, reported API spend/token counts, balances, and redacted error strings only.
-- **CLI is read-only**: `agentmeter` never imports Security/Keychain, never performs network I/O, and never reads provider credential files.
-- **App is sole handler**: only the running AgentMeter app refreshes usage and writes `status.json`.
+- **CLI is read-only**: `quotaai` never imports Security/Keychain, never performs network I/O, and never reads provider credential files.
+- **App is sole handler**: only the running QuotaAI app refreshes usage and writes `status.json`.
 
 ## Snapshot file
 
 | Property | Value |
 |----------|-------|
-| Path | `~/Library/Application Support/AgentMeter/status.json` |
+| Path | `~/Library/Application Support/QuotaAI/status.json` |
 | Format | JSON, UTF-8 |
 | Dates | ISO 8601 |
 | Current schema | `schemaVersion: 1` |
@@ -28,7 +28,7 @@ Top-level object:
 |-------|------|-------------|
 | `schemaVersion` | `Int` | Always `1` for this schema |
 | `generatedAt` | `String` (ISO 8601) | When the snapshot was written |
-| `appVersion` | `String` | AgentMeter app version |
+| `appVersion` | `String` | QuotaAI app version |
 | `providers` | `[ProviderStatus]` | Visible providers, in display order |
 
 `ProviderStatus`:
@@ -172,31 +172,31 @@ Within `schemaVersion` 1, changes are **additive only** (new optional fields). B
 
 ## URL schemes
 
-Registered scheme: `agentmeter://`
+Registered scheme: `quotaai://`
 
 | URL | Behavior |
 |-----|----------|
-| `agentmeter://openrouter?...` | OAuth callback (existing) |
-| `agentmeter://refresh` | Triggers refresh when agent access is enabled |
-| `agentmeter://details` | Opens the Usage Details window |
+| `quotaai://openrouter?...` | OAuth callback (existing) |
+| `quotaai://refresh` | Triggers refresh when agent access is enabled |
+| `quotaai://details` | Opens the Usage Details window |
 
-## CLI (`agentmeter`)
+## CLI (`quotaai`)
 
-Bundled at `AgentMeter.app/Contents/Helpers/agentmeter` (in `Helpers/` because
-`agentmeter` and `AgentMeter` would collide in `MacOS/` on case-insensitive
+Bundled at `QuotaAI.app/Contents/Helpers/quotaai` (in `Helpers/` because
+`quotaai` and `QuotaAI` would collide in `MacOS/` on case-insensitive
 filesystems).
 
 - Homebrew installs put it on your `PATH` automatically (cask `binary` stanza).
 - Manual installs: use **Settings → General → Install Command-Line Tool…**, or
-  `ln -s /Applications/AgentMeter.app/Contents/Helpers/agentmeter /usr/local/bin/agentmeter`
+  `ln -s /Applications/QuotaAI.app/Contents/Helpers/quotaai /usr/local/bin/quotaai`
 
 ```
-agentmeter status [--json]
-agentmeter refresh [--wait SECONDS]
-agentmeter doctor
-agentmeter skill
-agentmeter --version
-agentmeter --help
+quotaai status [--json]
+quotaai refresh [--wait SECONDS]
+quotaai doctor
+quotaai skill
+quotaai --version
+quotaai --help
 ```
 
 | Command | Description |
@@ -213,7 +213,7 @@ agentmeter --help
 | 0 | Success |
 | 1 | Usage error |
 | 2 | No snapshot (app not writing — enable agent access) |
-| 3 | AgentMeter not running (`refresh` only) |
+| 3 | QuotaAI not running (`refresh` only) |
 | 4 | Refresh wait timed out |
 
 `status` prints a staleness warning when `generatedAt` is older than 10 minutes.
@@ -223,34 +223,34 @@ agentmeter --help
 The app refreshes every 30 s / 1 min / 5 min (user setting) and on wake, and
 Codex updates instantly during CLI activity via a file watcher. Live Codex
 app-server reads are capped at one per 5 minutes per account regardless of the
-refresh interval; `agentmeter refresh` triggers a normal refresh, which reuses
+refresh interval; `quotaai refresh` triggers a normal refresh, which reuses
 the cached app-server reading if it is younger than 5 minutes. For Claude API,
 explicit menu/CLI refresh bypasses the five-minute report cache. Automatic
 polling retains caching; retries after reporting failures wait one minute.
 
 ### Debugging
 
-`AGENTMETER_DEBUG=1` in the app's environment enables structural tracing to
+`QUOTAAI_DEBUG=1` in the app's environment enables structural tracing to
 stderr (refresh completion per provider, Codex app-server success/failure).
 It never prints credentials. Note that launching the app binary directly from
 a shell can leave the initial refresh incomplete; prefer
-`open /Applications/AgentMeter.app` for real-world behavior and use the
+`open /Applications/QuotaAI.app` for real-world behavior and use the
 snapshot/CLI to observe it.
 
 ## Agent skill
 
-`agentmeter skill` prints the AgentMeter agent skill markdown to stdout (exit 0).
+`quotaai skill` prints the QuotaAI agent skill markdown to stdout (exit 0).
 Install it into your coding agent's skill directory, for example:
 
 ```bash
-mkdir -p ~/.codex/skills/agentmeter
-agentmeter skill > ~/.codex/skills/agentmeter/SKILL.md
+mkdir -p ~/.codex/skills/quotaai
+quotaai skill > ~/.codex/skills/quotaai/SKILL.md
 
-mkdir -p ~/.claude/skills/agentmeter
-agentmeter skill > ~/.claude/skills/agentmeter/SKILL.md
+mkdir -p ~/.claude/skills/quotaai
+quotaai skill > ~/.claude/skills/quotaai/SKILL.md
 
-mkdir -p ~/.cursor/skills/agentmeter
-agentmeter skill > ~/.cursor/skills/agentmeter/SKILL.md
+mkdir -p ~/.cursor/skills/quotaai
+quotaai skill > ~/.cursor/skills/quotaai/SKILL.md
 ```
 
 The canonical source in this repository is `docs/agent-skill/SKILL.md`; the CLI

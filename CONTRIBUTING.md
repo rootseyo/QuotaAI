@@ -1,4 +1,4 @@
-# Contributing to AgentMeter
+# Contributing to QuotaAI
 
 Thanks for your interest! PRs are welcome. For anything beyond a small fix,
 please open an issue first so we can agree on the approach before you invest
@@ -9,14 +9,14 @@ time.
 ```bash
 swift build          # debug build
 swift test           # unit tests (network-dependent tests are opt-in and skip by default)
-scripts/bundle.sh    # produce AgentMeter.app in the repo root
+scripts/bundle.sh    # produce QuotaAI.app in the repo root
 ```
 
 Requirements: macOS 14+, Xcode command line tools (Swift 5.10+).
 
 ## Adding a provider
 
-Each provider is one file in `Sources/AgentMeter/Providers/` implementing the
+Each provider is one file in `Sources/QuotaAI/Providers/` implementing the
 `UsageProvider` protocol:
 
 1. `isDetected` must be cheap and prompt-free (file existence checks only —
@@ -27,7 +27,7 @@ Each provider is one file in `Sources/AgentMeter/Providers/` implementing the
 3. Credentials must never be written to disk or sent anywhere except the
    provider's own API. This is the project's core promise.
 4. Register the provider in `UsageStore.defaultProviders` and add unit tests
-   for the response mapping (see `Tests/AgentMeterTests/` for examples).
+   for the response mapping (see `Tests/QuotaAITests/` for examples).
 
 ## Ground rules
 
