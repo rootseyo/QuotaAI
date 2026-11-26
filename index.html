@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>QuotaAI | AI Usage and Quota Tracker for macOS</title>
+  <meta name="description" content="Track remaining Codex, Claude Code and Gemini quotas, reset times, plus API spend and balances with QuotaAI, an open-source macOS menu bar app.">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <link rel="canonical" href="https://rootseyo.github.io/QuotaAI/">
+  <link rel="alternate" hreflang="en" href="https://rootseyo.github.io/QuotaAI/">
+  <link rel="alternate" hreflang="ko" href="https://rootseyo.github.io/QuotaAI/ko/">
+  <link rel="alternate" hreflang="x-default" href="https://rootseyo.github.io/QuotaAI/">
+  <meta name="theme-color" content="#fafbfe">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="QuotaAI">
+  <meta property="og:title" content="QuotaAI | AI Usage and Quota Tracker for macOS">
+  <meta property="og:description" content="Track remaining Codex, Claude Code and Gemini quotas, reset times, plus API spend and balances with QuotaAI, an open-source macOS menu bar app.">
+  <meta property="og:url" content="https://rootseyo.github.io/QuotaAI/">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:locale:alternate" content="ko_KR">
+  <meta property="og:image" content="https://rootseyo.github.io/QuotaAI/site-assets/share-en.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="QuotaAI logo and an example of Codex and Claude quota in the macOS menu bar.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="QuotaAI | AI Usage and Quota Tracker for macOS">
+  <meta name="twitter:description" content="Track remaining Codex, Claude Code and Gemini quotas, reset times, plus API spend and balances with QuotaAI, an open-source macOS menu bar app.">
+  <meta name="twitter:image" content="https://rootseyo.github.io/QuotaAI/site-assets/share-en.jpg">
+  <meta name="twitter:image:alt" content="QuotaAI logo and an example of Codex and Claude quota in the macOS menu bar.">
+  <link rel="icon" type="image/png" href="./site-assets/quotaai.png">
+  <link rel="stylesheet" href="./site-assets/site.css">
+  <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "QuotaAI",
+  "url": "https://rootseyo.github.io/QuotaAI/",
+  "description": "Track remaining Codex, Claude Code and Gemini quotas, reset times, plus API spend and balances with QuotaAI, an open-source macOS menu bar app.",
+  "inLanguage": "en",
+  "operatingSystem": "macOS 14 or later",
+  "applicationCategory": "DeveloperApplication",
+  "isAccessibleForFree": true,
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "license": "https://github.com/rootseyo/QuotaAI/blob/main/LICENSE",
+  "image": "https://rootseyo.github.io/QuotaAI/site-assets/share-en.jpg",
+  "softwareHelp": "https://github.com/rootseyo/QuotaAI#build-from-source",
+  "sameAs": "https://github.com/rootseyo/QuotaAI"
+}
+  </script>
+</head>
+<body>
+  <a class="skip" href="#content">Skip to content</a>
+  <header class="site-header">
+    <div class="shell header-inner">
+      <a class="brand" href="./"><img src="./site-assets/quotaai.png" width="36" height="36" alt="">QuotaAI</a>
+      <nav class="main-nav" aria-label="Main navigation">
+        <a class="features-link" href="#features">Features</a>
+        <a href="#install">Install</a>
+        <a class="language" href="./ko/" hreflang="ko" lang="ko">한국어</a>
+      </nav>
+    </div>
+  </header>
+  <main id="content">
+    <section class="shell hero" aria-labelledby="hero-title">
+      <div>
+        <p class="context">Open-source macOS menu bar app</p>
+        <h1 id="hero-title">Your AI quota,<br>at a glance.</h1>
+        <p class="lead">See how much Codex, Claude Code, and Gemini quota you have left, and when it resets. Keep API spend and balances in the same macOS menu.</p>
+        <div class="actions">
+          <a class="button primary" href="#install">Build for macOS</a>
+          <a class="button" href="https://github.com/rootseyo/QuotaAI">View on GitHub</a>
+        </div>
+        <p class="requirements">macOS 14 or later · Free and open source</p>
+      </div>
+      <figure class="preview">
+        <div class="preview-stage" aria-hidden="true">
+          <div class="toolbar">
+            <div class="toolbar-meter"><img src="./site-assets/codex.png" width="24" height="24" alt=""><div><strong class="mint">84%</strong><strong class="sky">62%</strong></div></div>
+            <div class="toolbar-meter"><img src="./site-assets/claude.png" width="24" height="24" alt=""><div><strong class="sky">68%</strong><strong class="gold">37%</strong></div></div>
+            <div class="toolbar-meter"><img src="./site-assets/gemini.png" width="24" height="24" alt=""><div><strong class="mint">92%</strong><strong class="orange">23%</strong></div></div>
+          </div>
+          <div class="preview-panel">
+            <div class="preview-head"><img src="./site-assets/quotaai.png" width="20" height="20" alt="">QuotaAI</div>
+            <div class="provider">
+              <div class="provider-title"><img src="./site-assets/codex.png" width="20" height="20" alt="">Codex</div>
+              <div class="meter-label"><span>5-hour limit</span><strong class="mint">84%</strong></div>
+              <div class="meter-track"><span class="mint" style="--remaining:84%"></span></div>
+              <div class="meter-label"><span>Weekly limit</span><strong class="sky">62%</strong></div>
+              <div class="meter-track"><span class="sky" style="--remaining:62%"></span></div>
+            </div>
+            <div class="provider">
+              <div class="provider-title"><img src="./site-assets/claude.png" width="20" height="20" alt="">Claude Code</div>
+              <div class="meter-label"><span>5-hour limit</span><strong class="sky">68%</strong></div>
+              <div class="meter-track"><span class="sky" style="--remaining:68%"></span></div>
+            </div>
+            <div class="provider">
+              <div class="provider-title"><img src="./site-assets/gemini.png" width="20" height="20" alt="">Gemini / Antigravity</div>
+              <div class="meter-label"><span>Weekly limit</span><strong class="orange">23%</strong></div>
+              <div class="meter-track"><span class="orange" style="--remaining:23%"></span></div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Example usage. Values are illustrative.</figcaption>
+      </figure>
+    </section>
+    <section class="shell features" id="features" aria-labelledby="features-title">
+      <h2 class="section-title" id="features-title">Plan around your limits</h2>
+      <div class="feature-list">
+        <article class="feature"><h3>See remaining quota and reset times</h3><p>Check short and weekly limits in the menu bar, then open QuotaAI for exact reset times and model-specific usage.</p></article>
+        <article class="feature"><h3>Track multiple Codex accounts</h3><p>Add separate signed-in Codex profiles and see each account’s quota in the same menu.</p></article>
+        <article class="feature"><h3>Monitor API costs and balances</h3><p>See Claude API organization spend and reported balances or key limits from providers such as OpenRouter, DeepSeek, Kimi, and Venice.</p></article>
+        <article class="feature"><h3>Keep usage monitoring local</h3><p>QuotaAI runs on your Mac without analytics. It sends credentials only to the provider they belong to and can expose a read-only usage snapshot to local tools.</p></article>
+      </div>
+    </section>
+    <section class="install" id="install" aria-labelledby="install-title">
+      <div class="shell install-inner">
+        <div>
+          <h2 class="section-title" id="install-title">Build QuotaAI for macOS</h2>
+          <p>Install the Xcode Command Line Tools, then run the following in Terminal. QuotaAI uses the supported tools and accounts you’re already signed in to.</p>
+          <a class="supporting-link" href="https://github.com/rootseyo/QuotaAI#build-from-source">Read the setup guide on GitHub</a>
+        </div>
+        <pre><code>git clone https://github.com/rootseyo/QuotaAI.git
+cd QuotaAI
+scripts/bundle.sh
+open QuotaAI.app</code></pre>
+      </div>
+    </section>
+    <section class="shell faq" aria-labelledby="faq-title">
+      <h2 class="section-title" id="faq-title">Frequently asked questions</h2>
+      <details><summary>Which AI services can I track?</summary><p>QuotaAI supports Codex, Cursor, Claude Code, Gemini quota through Antigravity, and eligible Claude API reporting. OpenRouter, DeepSeek, Kimi, Z.ai, and Venice provide balances, costs, or quotas depending on the account.</p></details>
+      <details><summary>Do I need to create a QuotaAI account?</summary><p>No. QuotaAI runs locally. Sign in to the providers you use, or add a supported API key in Settings when the provider requires one.</p></details>
+      <details><summary>Is QuotaAI available for Windows?</summary><p>The macOS app is the current build. A Windows system tray preview is in development.</p></details>
+    </section>
+  </main>
+  <footer class="footer">
+    <div class="shell footer-inner">
+      <p>QuotaAI · <a href="https://github.com/rootseyo/QuotaAI/blob/main/LICENSE">MIT license</a> · Based on AgentMeter by Felix Torres.</p>
+      <a href="https://buymeacoffee.com/seyo">Support QuotaAI</a>
+    </div>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,13 @@
+exclude:
+  - AGENTS.md
+  - CHANGELOG.md
+  - CONTRIBUTING.md
+  - Package.resolved
+  - Package.swift
+  - README.md
+  - SECURITY.md
+  - Resources
+  - Sources
+  - Tests
+  - docs
+  - scripts
