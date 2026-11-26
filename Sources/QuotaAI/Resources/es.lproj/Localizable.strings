@@ -48,20 +48,30 @@
 	<string>(confirmado)</string>
 	<key>(expected)</key>
 	<string>(estimado)</string>
+	<key>0%</key>
+	<string>0 %</string>
 	<key>1 day before</key>
 	<string>1 día antes</string>
 	<key>1 minute</key>
 	<string>1 minuto</string>
+	<key>1–25%</key>
+	<string>1–25 %</string>
+	<key>26–50%</key>
+	<string>26–50 %</string>
 	<key>3 days before</key>
 	<string>3 días antes</string>
 	<key>30 seconds</key>
 	<string>30 segundos</string>
 	<key>5 minutes</key>
 	<string>5 minutos</string>
+	<key>51–75%</key>
+	<string>51–75 %</string>
 	<key>5h limit</key>
 	<string>Límite de 5 h</string>
 	<key>7 days before</key>
 	<string>7 días antes</string>
+	<key>76–100%</key>
+	<string>76–100 %</string>
 	<key>A management key can control your whole OpenRouter account, including creating and deleting other API keys. QuotaAI only reads usage and balance — it cannot spend credits or change anything. A regular API key is safer; use Connect to get a dedicated key for QuotaAI that you can revoke anytime.</key>
 	<string>Una clave de administración puede controlar toda tu cuenta de OpenRouter, incluida la creación y eliminación de otras claves API. QuotaAI solo lee el uso y el saldo; no puede gastar créditos ni cambiar nada. Una clave API normal es más segura; usa Conectar para obtener una clave dedicada para QuotaAI que puedas revocar en cualquier momento.</string>
 	<key>API key</key>
@@ -108,6 +118,8 @@
 	<string>Antigravity</string>
 	<key>Antigravity did not return readable quota data.</key>
 	<string>Antigravity no devolvió datos de cuota legibles.</string>
+	<key>Appearance</key>
+	<string>Apariencia</string>
 	<key>Apple</key>
 	<string>Apple</string>
 	<key>Argon (weekly)</key>
@@ -214,6 +226,8 @@
 	<string>El token de sesión de Cursor tiene un formato inesperado</string>
 	<key>Cursor session token not found (is Cursor signed in?)</key>
 	<string>No se encontró el token de sesión de Cursor (¿estás conectado en Cursor?)</string>
+	<key>Dark appearance</key>
+	<string>Modo oscuro</string>
 	<key>Data as of %@</key>
 	<string>Datos al %@</string>
 	<key>DeepSeek key rejected — check the key in Settings</key>
@@ -316,6 +330,8 @@
 	<string>Última confirmación: %@</string>
 	<key>Launch at Login</key>
 	<string>Abrir al iniciar sesión</string>
+	<key>Light appearance</key>
+	<string>Modo claro</string>
 	<key>Limited key</key>
 	<string>Clave limitada</string>
 	<key>Loading…</key>
@@ -420,6 +436,8 @@
 	<string>Reinstalar herramienta de línea de comandos…</string>
 	<key>Relative</key>
 	<string>Relativo</string>
+	<key>Remaining Quota Colors</key>
+	<string>Colores de cuota restante</string>
 	<key>Remind me</key>
 	<string>Recordarme</string>
 	<key>Remove</key>
@@ -438,6 +456,8 @@
 	<string>Los informes pueden ir por detrás del sitio web de Anthropic. No incluyen los costos de Priority Tier.</string>
 	<key>Reports before %@ UTC</key>
 	<string>Datos anteriores a %@ UTC</string>
+	<key>Reset Colors</key>
+	<string>Restablecer colores</string>
 	<key>Reset times</key>
 	<string>Tiempos de restablecimiento</string>
 	<key>Run from QuotaAI.app to install the command-line tool.</key>
@@ -520,6 +540,8 @@
 	<string>Respuesta inesperada de Z.ai</string>
 	<key>Unexpected response from cursor.com</key>
 	<string>Respuesta inesperada de cursor.com</string>
+	<key>Update checks are unavailable in this build.</key>
+	<string>La búsqueda de actualizaciones no está disponible en esta compilación.</string>
 	<key>Updated %@</key>
 	<string>Actualizado %@</string>
 	<key>Usage</key>

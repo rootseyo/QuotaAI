@@ -22,12 +22,22 @@
 	<string>(confirmed)</string>
 	<key>(expected)</key>
 	<string>(expected)</string>
+	<key>0%</key>
+	<string>0%</string>
 	<key>1 day before</key>
 	<string>1 day before</string>
+	<key>1–25%</key>
+	<string>1–25%</string>
+	<key>26–50%</key>
+	<string>26–50%</string>
 	<key>3 days before</key>
 	<string>3 days before</string>
+	<key>51–75%</key>
+	<string>51–75%</string>
 	<key>7 days before</key>
 	<string>7 days before</string>
+	<key>76–100%</key>
+	<string>76–100%</string>
 	<key>A management key can control your whole OpenRouter account, including creating and deleting other API keys. QuotaAI only reads usage and balance — it cannot spend credits or change anything. A regular API key is safer; use Connect to get a dedicated key for QuotaAI that you can revoke anytime.</key>
 	<string>A management key can control your whole OpenRouter account, including creating and deleting other API keys. QuotaAI only reads usage and balance — it cannot spend credits or change anything. A regular API key is safer; use Connect to get a dedicated key for QuotaAI that you can revoke anytime.</string>
 	<key>API key removed</key>
@@ -58,6 +68,8 @@
 	<string>Antigravity</string>
 	<key>Antigravity did not return readable quota data.</key>
 	<string>Antigravity did not return readable quota data.</string>
+	<key>Appearance</key>
+	<string>Appearance</string>
 	<key>Apple</key>
 	<string>Apple</string>
 	<key>Argon (weekly)</key>
@@ -126,6 +138,8 @@
 	<string>Couldn't check key</string>
 	<key>Couldn't install the command-line tool: %@</key>
 	<string>Couldn't install the command-line tool: %@</string>
+	<key>Dark appearance</key>
+	<string>Dark appearance</string>
 	<key>Default (~/.codex)</key>
 	<string>Default (~/.codex)</string>
 	<key>Default Codex account, %@</key>
@@ -194,6 +208,8 @@
 	<string>Last checked %@</string>
 	<key>Last confirmed %@</key>
 	<string>Last confirmed %@</string>
+	<key>Light appearance</key>
+	<string>Light appearance</string>
 	<key>Limited key</key>
 	<string>Limited key</string>
 	<key>Login command copied</key>
@@ -246,6 +262,8 @@
 	<string>Reads prepaid balance only.</string>
 	<key>Reinstall Command-Line Tool…</key>
 	<string>Reinstall Command-Line Tool…</string>
+	<key>Remaining Quota Colors</key>
+	<string>Remaining Quota Colors</string>
 	<key>Remind me</key>
 	<string>Remind me</string>
 	<key>Removing only forgets the path; it does not sign out.</key>
@@ -262,6 +280,8 @@
 	<string>Reporting may lag the Anthropic website. Priority Tier costs excluded.</string>
 	<key>Reports before %@ UTC</key>
 	<string>Reports before %@ UTC</string>
+	<key>Reset Colors</key>
+	<string>Reset Colors</string>
 	<key>Run from QuotaAI.app to install the command-line tool.</key>
 	<string>Run from QuotaAI.app to install the command-line tool.</string>
 	<key>Run this in Terminal to sign in that account. QuotaAI never handles your login or tokens — the Codex CLI does.</key>
@@ -306,6 +326,8 @@
 	<string>Unavailable via API</string>
 	<key>Unexpected Claude API report</key>
 	<string>Unexpected Claude API report</string>
+	<key>Update checks are unavailable in this build.</key>
+	<string>Update checks are unavailable in this build.</string>
 	<key>Usage</key>
 	<string>Usage</string>
 	<key>Usage Details</key>

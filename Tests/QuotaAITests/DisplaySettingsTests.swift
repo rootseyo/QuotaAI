@@ -1,7 +1,25 @@
+import AppKit
 import XCTest
 @testable import QuotaAI
 
 final class DisplaySettingsTests: XCTestCase {
+    @MainActor func testRemainingQuotaColorsPersistIndependentlyByAppearanceAndReset() {
+        let suite = "RemainingQuotaColors.\(UUID())"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let settings = SettingsStore(defaults: defaults)
+        let initialDark = settings.remainingQuotaColors.color(for: .good, appearance: .dark)
+        let custom = NSColor(srgbRed: 0, green: 1, blue: 1, alpha: 1)
+        settings.remainingQuotaColors.setColor(custom, for: .good, appearance: .light)
+
+        let saved = SettingsStore(defaults: defaults)
+        XCTAssertEqual(saved.remainingQuotaColors.color(for: .good, appearance: .light), custom)
+        XCTAssertEqual(saved.remainingQuotaColors.color(for: .good, appearance: .dark), initialDark)
+
+        saved.remainingQuotaColors = RemainingQuotaColor()
+        XCTAssertTrue(SettingsStore(defaults: defaults).remainingQuotaColors.overrides.isEmpty)
+    }
+
     @MainActor func testDefaultGraphsShowRemainingAndPreserveExplicitPreference() {
         let suite = "RemainingGraphs.\(UUID())"
         let defaults = UserDefaults(suiteName: suite)!

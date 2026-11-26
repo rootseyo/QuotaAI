@@ -11,6 +11,9 @@ you choose which ones appear in the menu bar.
 QuotaAI is based on [AgentMeter](https://github.com/fdtorres1/AgentMeter) by
 Felix Torres. See the [MIT license](LICENSE).
 
+A [Windows preview](Windows/README.md) provides a tray icon and an optional
+always-on-top Codex quota widget.
+
 ## Providers
 
 | Provider | Source | How usage is read |

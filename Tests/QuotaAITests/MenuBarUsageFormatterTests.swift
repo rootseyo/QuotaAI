@@ -43,6 +43,23 @@ final class MenuBarUsageFormatterTests: XCTestCase {
         XCTAssertTrue(MenuBarUsageFormatter.accessibilityDescription([entry]).contains("75%"))
         XCTAssertTrue(MenuBarUsageFormatter.accessibilityDescription([entry]).contains(L("data is stale")))
     }
+
+    @MainActor func testRemainingColorsUseFiveBandsInBothAppearances() throws {
+        let palette = RemainingQuotaColor()
+        let bands = [76...100, 51...75, 26...50, 1...25, 0...0]
+        for name in [NSAppearance.Name.aqua, .darkAqua] {
+            try XCTUnwrap(NSAppearance(named: name)).performAsCurrentDrawingAppearance {
+                let colors = bands.compactMap { band in
+                    let upper = palette.color(for: band.upperBound).usingColorSpace(.sRGB)
+                    let lower = palette.color(for: band.lowerBound).usingColorSpace(.sRGB)
+                    XCTAssertEqual(upper, lower)
+                    return upper
+                }
+                XCTAssertEqual(Set(colors).count, bands.count)
+            }
+        }
+    }
+
     @MainActor func testIconsRenderInBothAppearancesAtStatusBarHeight() throws {
         XCTAssertNotNil(ProviderIcons.antigravity)
         for id in ["codex", "codex:work", "claude", "claude-api", "gemini"] {
@@ -54,7 +71,9 @@ final class MenuBarUsageFormatterTests: XCTestCase {
         }
         for name in [NSAppearance.Name.aqua, .darkAqua] {
             try XCTUnwrap(NSAppearance(named: name)).performAsCurrentDrawingAppearance {
-                let image = MenuBarTitleRenderer.twoLineImage(entries: entries, accessibilityDescription: "usage")
+                let image = MenuBarTitleRenderer.twoLineImage(
+                    entries: entries, colors: RemainingQuotaColor(), accessibilityDescription: "usage"
+                )
                 XCTAssertEqual(image.size.height, 20)
                 XCTAssertGreaterThan(image.size.width, 70)
                 XCTAssertNotNil(image.tiffRepresentation)

@@ -341,8 +341,8 @@ private struct WindowMeter: View {
                 Spacer()
                 HStack(spacing: 4) {
                     Text(settings.countDirection.percentLabel(window.usedPercent))
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(color)
+                        .font(.caption.monospacedDigit().weight(.semibold))
+                        .foregroundStyle(percentColor)
                     if let symbol = severity.symbolName {
                         Image(systemName: symbol)
                             .font(.caption2)
@@ -372,6 +372,13 @@ private struct WindowMeter: View {
 
     private var severity: UsageMeterSeverity {
         UsageMeterSeverity.forUsedPercent(window.usedPercent)
+    }
+
+    private var percentColor: Color {
+        if settings.countDirection == .remaining, let remaining = MenuBarUsageFormatter.remaining(window.usedPercent) {
+            return Color(nsColor: settings.remainingQuotaColors.color(for: remaining))
+        }
+        return color
     }
 
     private var color: Color {

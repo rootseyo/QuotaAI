@@ -1,18 +1,17 @@
 import SwiftUI
 
-/// Graph hue identifies a service/model pool. Warning text and symbols retain
-/// severity independently, so the graph doesn't lose its identity as quota falls.
+/// A provider's quota bars share a hue. Shade distinguishes its windows and pools.
 enum UsageGraphPalette {
-    enum Family: Equatable { case codex, base, argon, claudeGPT, other }
+    enum Family: Equatable { case codex, claude, gemini, other }
 
-    static func family(providerID: String, label: String) -> Family {
-        if providerID == "codex" || providerID.hasPrefix("codex:") { return .codex }
-        if providerID == "gemini" {
-            if label == L("Argon (weekly)") { return .argon }
-            if label == L("Base model (5h)") || label == L("Base model (weekly)") { return .base }
-            if label == L("Claude / GPT (5h)") || label == L("Claude / GPT (weekly)") { return .claudeGPT }
+    static func family(providerID: String) -> Family {
+        switch providerID {
+        case "codex": .codex
+        case let id where id.hasPrefix("codex:"): .codex
+        case "claude", "claude-api": .claude
+        case "gemini": .gemini
+        default: .other
         }
-        return .other
     }
 
     static func isWeekly(_ label: String) -> Bool {
@@ -22,13 +21,31 @@ enum UsageGraphPalette {
 
     static func color(providerID: String, label: String) -> Color {
         let weekly = isWeekly(label)
-        switch family(providerID: providerID, label: label) {
-        case .codex: return weekly ? .teal : .mint
-        case .base: return weekly ? .indigo : .blue
-        case .argon: return .purple
-        case .claudeGPT: return weekly ? Color(red: 0.85, green: 0.40, blue: 0.22) : .orange
+        switch family(providerID: providerID) {
+        case .codex:
+            return rgb(weekly ? 0x4D87DA : 0x1E64DA)
+        case .claude:
+            if label == L("Weekly (Opus)") { return rgb(0xBF5718) }
+            return rgb(weekly ? 0xCE6B32 : 0xE0782C)
+        case .gemini:
+            switch label {
+            case L("Argon (weekly)"):
+                return rgb(0x9C65BF)
+            case L("Claude / GPT (5h)"), L("Claude / GPT (weekly)"):
+                return rgb(weekly ? 0xA164D6 : 0x8855C4)
+            default:
+                return rgb(weekly ? 0x9C75DF : 0x814BD1)
+            }
         case .other:
             return ProviderBadge.color(for: providerID).opacity(weekly ? 0.75 : 1)
         }
+    }
+
+    private static func rgb(_ value: UInt32) -> Color {
+        Color(
+            red: Double(value >> 16 & 255) / 255,
+            green: Double(value >> 8 & 255) / 255,
+            blue: Double(value & 255) / 255
+        )
     }
 }

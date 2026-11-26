@@ -4,6 +4,7 @@ import SwiftUI
 struct MenuContent: View {
     @ObservedObject var store: UsageStore
     @ObservedObject var settings: SettingsStore
+    @ObservedObject private var updater = Updater.shared
     @Environment(\.openWindow) private var openWindow
     @State private var menuScreenVisibleHeight: CGFloat?
 
@@ -88,11 +89,12 @@ struct MenuContent: View {
             HStack {
                 Button(L("Check for Updates…")) {
                     Self.closeMenuBarWindow()
-                    Updater.shared.checkForUpdates()
+                    updater.checkForUpdates()
                 }
                 .buttonStyle(.plain)
                 .font(.caption)
-                .help(L("Check for Updates…"))
+                .disabled(!updater.canCheck)
+                .help(updater.isConfigured ? L("Check for Updates…") : L("Update checks are unavailable in this build."))
                 .accessibilityLabel(L("Check for Updates…"))
                 Spacer()
                 Link(destination: tipJarURL) {

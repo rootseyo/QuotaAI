@@ -8,3 +8,6 @@ HANDOFF.md
 appcast.xml
 AgentMeter.zip
 QuotaAI.zip
+/Windows/**/bin/
+/Windows/**/obj/
+/Windows/artifacts/

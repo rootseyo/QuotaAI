@@ -1,0 +1,37 @@
+name: Windows preview
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Windows/**'
+      - '.github/workflows/windows.yml'
+  pull_request:
+    paths:
+      - 'Windows/**'
+      - '.github/workflows/windows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Test Codex integration
+        run: dotnet run --project Windows/QuotaAI.Tests -c Release
+      - name: Publish Windows x64
+        run: >-
+          dotnet publish Windows/QuotaAI.Tray -c Release -r win-x64
+          --self-contained -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+          -o out/windows-x64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: QuotaAI-Windows-x64
+          path: out/windows-x64/QuotaAI.exe
+          if-no-files-found: error

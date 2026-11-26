@@ -67,6 +67,10 @@ final class SettingsStore: ObservableObject {
         didSet { defaults.set(menuBarDisplayStyle.rawValue, forKey: Keys.menuBarDisplayStyle) }
     }
 
+    @Published var remainingQuotaColors: RemainingQuotaColor {
+        didSet { defaults.set(remainingQuotaColors.overrides, forKey: Keys.remainingQuotaColors) }
+    }
+
     @Published var agentAccessEnabled: Bool {
         didSet {
             defaults.set(agentAccessEnabled, forKey: Keys.agentAccessEnabled)
@@ -118,6 +122,7 @@ final class SettingsStore: ObservableObject {
         static let balanceNotificationThreshold = "balanceNotificationThreshold"
         static let menuBarStyle = "menuBarStyle"
         static let menuBarDisplayStyle = "menuBarDisplayStyle"
+        static let remainingQuotaColors = "remainingQuotaColors"
         static let agentAccessEnabled = "agentAccessEnabled"
         static let codexExtraAccounts = "codexExtraAccounts"
         static let subscriptionRenewals = "subscriptionRenewals"
@@ -154,6 +159,9 @@ final class SettingsStore: ObservableObject {
         }
         self.menuBarDisplayStyle = defaults.string(forKey: Keys.menuBarDisplayStyle)
             .flatMap(MenuBarDisplayStyle.init(rawValue:)) ?? .twoLineRemaining
+        self.remainingQuotaColors = RemainingQuotaColor(
+            overrides: defaults.dictionary(forKey: Keys.remainingQuotaColors) as? [String: Int] ?? [:]
+        )
         self.agentAccessEnabled = defaults.bool(forKey: Keys.agentAccessEnabled)
         if let data = defaults.data(forKey: Keys.codexExtraAccounts),
            let accounts = try? JSONDecoder().decode([CodexAccountConfig].self, from: data) {

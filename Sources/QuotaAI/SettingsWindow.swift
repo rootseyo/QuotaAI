@@ -777,6 +777,12 @@ private struct CredentialAssessmentView: View {
 
 private struct DisplaySettingsTab: View {
     @ObservedObject var settings: SettingsStore
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var editingAppearance: RemainingQuotaColor.Appearance?
+
+    private var paletteAppearance: RemainingQuotaColor.Appearance {
+        editingAppearance ?? (colorScheme == .dark ? .dark : .light)
+    }
 
     var body: some View {
         Form {
@@ -807,8 +813,45 @@ private struct DisplaySettingsTab: View {
                 .pickerStyle(.segmented)
                 .disabled(settings.menuBarDisplayStyle != .original)
             }
+            Section(L("Remaining Quota Colors")) {
+                Picker(L("Appearance"), selection: Binding(
+                    get: { paletteAppearance },
+                    set: { editingAppearance = $0 }
+                )) {
+                    ForEach(RemainingQuotaColor.Appearance.allCases, id: \.self) { appearance in
+                        Text(appearance.label).tag(appearance)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                HStack(spacing: 8) {
+                    ForEach(RemainingQuotaColor.Band.allCases, id: \.self) { band in
+                        VStack(spacing: 4) {
+                            ColorPicker(band.label, selection: colorBinding(for: band), supportsOpacity: false)
+                                .labelsHidden()
+                            Text(band.label)
+                                .font(.caption)
+                                .accessibilityHidden(true)
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                }
+
+                Button(L("Reset Colors")) {
+                    settings.remainingQuotaColors = RemainingQuotaColor()
+                }
+                .disabled(settings.remainingQuotaColors.overrides.isEmpty)
+            }
         }
         .formStyle(.grouped)
+    }
+
+    private func colorBinding(for band: RemainingQuotaColor.Band) -> Binding<Color> {
+        let appearance = paletteAppearance
+        return Binding(
+            get: { Color(nsColor: settings.remainingQuotaColors.color(for: band, appearance: appearance)) },
+            set: { settings.remainingQuotaColors.setColor(NSColor($0), for: band, appearance: appearance) }
+        )
     }
 }
 

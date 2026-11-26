@@ -71,11 +71,15 @@ enum MenuBarTitleRenderer {
         return image
     }
 
-    static func twoLineImage(entries: [MenuBarUsageFormatter.Entry], accessibilityDescription: String) -> NSImage {
+    static func twoLineImage(
+        entries: [MenuBarUsageFormatter.Entry],
+        colors: RemainingQuotaColor,
+        accessibilityDescription: String
+    ) -> NSImage {
         guard !entries.isEmpty else {
             return image(entries: [("QuotaAI", .normal)], accessibilityDescription: accessibilityDescription)
         }
-        let font = NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .regular)
+        let font = NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .bold)
         let badgeFont = NSFont.systemFont(ofSize: 9, weight: .semibold)
         let lineHeight: CGFloat = 10
         let badgeWidth: CGFloat = 20
@@ -103,12 +107,9 @@ enum MenuBarTitleRenderer {
                 }
                 x += badgeWidth + gap
                 for (lineIndex, line) in entry.lines.enumerated() {
-                    let color: NSColor
-                    if entry.stale || line.remaining == nil { color = .secondaryLabelColor }
-                    else if line.remaining == 0 { color = .systemRed }
-                    else if line.remaining! < 20 { color = .systemOrange }
-                    else if line.remaining! <= 50 { color = .systemYellow }
-                    else { color = .labelColor }
+                    let color = entry.stale
+                        ? NSColor.secondaryLabelColor
+                        : line.remaining.map { colors.color(for: $0) } ?? .secondaryLabelColor
                     let y = entry.lines.count == 1 ? (20 - lineHeight) / 2 : CGFloat(lineIndex) * lineHeight
                     (line.text as NSString).draw(at: NSPoint(x: x, y: y), withAttributes: [.font: font, .foregroundColor: color])
                 }

@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import Sparkle
 
@@ -5,28 +6,40 @@ import Sparkle
 /// in Info.plist (SUFeedURL, pointing at the latest GitHub release asset) and
 /// verifies downloads against the EdDSA public key (SUPublicEDKey).
 ///
-/// When running unbundled (swift run / tests) there is no Info.plist feed, so
-/// the controller is created with automatic checks off and simply does nothing.
+/// Local builds omit the feed and signing key, so they have no updater.
 @MainActor
-final class Updater {
+final class Updater: ObservableObject {
     static let shared = Updater()
 
-    private let controller: SPUStandardUpdaterController
+    @Published private(set) var canCheck = false
+    private let controller: SPUStandardUpdaterController?
+
+    var isConfigured: Bool { controller != nil }
 
     private init() {
-        controller = SPUStandardUpdaterController(
-            startingUpdater: Bundle.main.bundleIdentifier != nil
-                && (Bundle.main.object(forInfoDictionaryKey: "QuotaAIUpdatesEnabled") as? Bool ?? true),
+        let bundle = Bundle.main
+        guard bundle.object(forInfoDictionaryKey: "QuotaAIUpdatesEnabled") as? Bool == true,
+              let feed = bundle.object(forInfoDictionaryKey: "SUFeedURL") as? String,
+              URL(string: feed)?.scheme == "https",
+              let key = bundle.object(forInfoDictionaryKey: "SUPublicEDKey") as? String,
+              Data(base64Encoded: key)?.count == 32 else {
+            controller = nil
+            return
+        }
+
+        let updaterController = SPUStandardUpdaterController(
+            startingUpdater: true,
             updaterDelegate: nil,
             userDriverDelegate: nil
         )
-    }
-
-    var canCheck: Bool {
-        controller.updater.canCheckForUpdates
+        controller = updaterController
+        updaterController.updater.publisher(for: \.canCheckForUpdates)
+            .receive(on: DispatchQueue.main)
+            .assign(to: &$canCheck)
     }
 
     func checkForUpdates() {
-        controller.checkForUpdates(nil)
+        guard canCheck else { return }
+        controller?.checkForUpdates(nil)
     }
 }

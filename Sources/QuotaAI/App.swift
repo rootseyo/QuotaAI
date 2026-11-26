@@ -52,6 +52,7 @@ private struct MenuBarLabel: View {
             if settings.menuBarDisplayStyle == .twoLineRemaining {
                 Image(nsImage: MenuBarTitleRenderer.twoLineImage(
                     entries: store.twoLineMenuBarEntries,
+                    colors: settings.remainingQuotaColors,
                     accessibilityDescription: store.twoLineAccessibilityDescription
                 ))
             } else if settings.menuBarStyle == .icon {
@@ -87,6 +88,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        _ = Updater.shared
         // Menu-bar-only app: no Dock icon even when run unbundled via swift run.
         NSApp.setActivationPolicy(.accessory)
     }
