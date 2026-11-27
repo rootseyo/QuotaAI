@@ -8,6 +8,7 @@ enum ProviderIcons {
         case let id where id.hasPrefix("codex:"): chatGPT
         case "claude", "claude-api": claude
         case "gemini": gemini
+        case "cursor": cursor
         default: nil
         }
     }
@@ -16,6 +17,7 @@ enum ProviderIcons {
     private static let chatGPT = load("chatgpt", extension: "icns")
     private static let claude = load("claude", extension: "png")
     private static let gemini = load("gemini", extension: "png")
+    private static let cursor = load("cursor", extension: "png")
 
     private static func load(_ name: String, extension fileExtension: String) -> NSImage? {
         Bundle.module.url(forResource: name, withExtension: fileExtension)

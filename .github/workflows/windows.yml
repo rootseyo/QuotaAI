@@ -3,12 +3,15 @@ name: Windows preview
 on:
   push:
     branches: [main]
+    tags: ['windows-preview-*']
     paths:
       - 'Windows/**'
+      - 'Sources/QuotaAI/Resources/ProviderIcons/**'
       - '.github/workflows/windows.yml'
   pull_request:
     paths:
       - 'Windows/**'
+      - 'Sources/QuotaAI/Resources/ProviderIcons/**'
       - '.github/workflows/windows.yml'
   workflow_dispatch:
 
@@ -35,3 +38,27 @@ jobs:
           name: QuotaAI-Windows-x64
           path: out/windows-x64/QuotaAI.exe
           if-no-files-found: error
+  release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/windows-preview-')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: QuotaAI-Windows-x64
+      - name: Publish Windows preview release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "QuotaAI.exe#QuotaAI for Windows (x64)" --clobber
+          else
+            gh release create "$RELEASE_TAG" "QuotaAI.exe#QuotaAI for Windows (x64)" \
+              --verify-tag --prerelease --latest=false \
+              --title "QuotaAI Windows Preview (${RELEASE_TAG#windows-preview-})" \
+              --notes "Standalone Windows x64 build. Download QuotaAI.exe to run the preview."
+          fi

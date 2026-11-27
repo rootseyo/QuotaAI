@@ -12,6 +12,10 @@
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="QuotaAI.ico" LogicalName="QuotaAI.ico" />
+    <EmbeddedResource Include="../../Sources/QuotaAI/Resources/ProviderIcons/chatgpt.icns" LogicalName="codex.icns" />
+    <EmbeddedResource Include="../../Sources/QuotaAI/Resources/ProviderIcons/antigravity.icns" LogicalName="antigravity.icns" />
+    <EmbeddedResource Include="../../Sources/QuotaAI/Resources/ProviderIcons/claude.png" LogicalName="claude.png" />
+    <EmbeddedResource Include="../../Sources/QuotaAI/Resources/ProviderIcons/cursor.png" LogicalName="cursor.png" />
     <ProjectReference Include="../QuotaAI.Core/QuotaAI.Core.csproj" />
   </ItemGroup>
 </Project>

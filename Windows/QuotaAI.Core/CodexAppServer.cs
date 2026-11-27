@@ -12,36 +12,49 @@ public static class CodexAppServer
     private const string Init = """{"id":1,"method":"initialize","params":{"clientInfo":{"name":"QuotaAI","version":"1.0"}}}""";
     private const string Initialized = """{"method":"initialized"}""";
     private const string Limits = """{"id":2,"method":"account/rateLimits/read","params":{}}""";
+    private const string Account = """{"id":3,"method":"account/read","params":{}}""";
 
-    public static Task<CodexUsage> ReadAsync(CancellationToken cancellationToken)
+    public static Task<CodexUsage> ReadAsync(CancellationToken cancellationToken) =>
+        ReadAsync(codexHome: null, includeAccountRead: false, cancellationToken);
+
+    public static Task<CodexUsage> ReadAsync(string? codexHome, bool includeAccountRead, CancellationToken cancellationToken)
     {
         var executable = FindOnPath("codex.exe");
         if (executable is not null)
-            return ReadAsync(executable, ["app-server"], cancellationToken);
+            return ReadAsync(executable, ["app-server"], codexHome, includeAccountRead, cancellationToken);
 
-        // npm installs a .cmd wrapper. Run its JavaScript entry point with Node
-        // directly so process startup and cleanup do not require a command shell.
         var node = FindOnPath("node.exe");
         var npm = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         if (node is not null)
         {
             var roots = PathDirectories().Append(Path.GetDirectoryName(node)!);
             if (Path.IsPathFullyQualified(npm))
                 roots = roots.Append(Path.Combine(npm, "npm"));
+            if (Path.IsPathFullyQualified(localAppData))
+                roots = roots.Append(Path.Combine(localAppData, "pnpm", "global", "5"));
 
             foreach (var root in roots)
             {
                 var script = Path.Combine(root, "node_modules", "@openai", "codex", "bin", "codex.js");
                 if (File.Exists(script))
-                    return ReadAsync(node, [script, "app-server"], cancellationToken);
+                    return ReadAsync(node, [script, "app-server"], codexHome, includeAccountRead, cancellationToken);
             }
         }
 
         throw new CodexUnavailableException("Install the Codex CLI and add it to PATH.");
     }
 
+    internal static Task<CodexUsage> ReadAsync(
+        string executable, string[] arguments, CancellationToken cancellationToken) =>
+        ReadAsync(executable, arguments, codexHome: null, includeAccountRead: false, cancellationToken);
+
     internal static async Task<CodexUsage> ReadAsync(
-        string executable, string[] arguments, CancellationToken cancellationToken)
+        string executable,
+        string[] arguments,
+        string? codexHome,
+        bool includeAccountRead,
+        CancellationToken cancellationToken)
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(TimeSpan.FromSeconds(10));
@@ -56,6 +69,9 @@ public static class CodexAppServer
             StandardInputEncoding = new UTF8Encoding(false),
             StandardOutputEncoding = Encoding.UTF8
         };
+        if (!string.IsNullOrWhiteSpace(codexHome))
+            start.Environment["CODEX_HOME"] = codexHome;
+
         foreach (var argument in arguments)
             start.ArgumentList.Add(argument);
 
@@ -71,8 +87,6 @@ public static class CodexAppServer
             throw new CodexUnavailableException("Could not start the Codex CLI.");
         }
 
-        // Drain stderr without retaining it. The child can emit diagnostics
-        // unrelated to usage and should never block on a full pipe.
         try
         {
             process.ErrorDataReceived += static (_, _) => { };
@@ -80,9 +94,34 @@ public static class CodexAppServer
             await WriteAsync(process.StandardInput, Init, token).ConfigureAwait(false);
             await ReadResultAsync(process.StandardOutput, 1, token).ConfigureAwait(false);
             await WriteAsync(process.StandardInput, Initialized, token).ConfigureAwait(false);
+
+            string? email = null;
+            string? planType = null;
+            if (includeAccountRead)
+            {
+                await WriteAsync(process.StandardInput, Account, token).ConfigureAwait(false);
+                try
+                {
+                    var accountResult = await ReadResultAsync(process.StandardOutput, 3, token).ConfigureAwait(false);
+                    if (accountResult.ValueKind == JsonValueKind.Object
+                        && accountResult.TryGetProperty("account", out var acct)
+                        && acct.ValueKind == JsonValueKind.Object)
+                    {
+                        if (acct.TryGetProperty("email", out var em) && em.ValueKind == JsonValueKind.String)
+                            email = em.GetString();
+                        if (acct.TryGetProperty("planType", out var pt) && pt.ValueKind == JsonValueKind.String)
+                            planType = pt.GetString();
+                    }
+                }
+                catch (CodexUnavailableException)
+                {
+                    // Optional enrichment; rateLimits/read remains authoritative.
+                }
+            }
+
             await WriteAsync(process.StandardInput, Limits, token).ConfigureAwait(false);
             var result = await ReadResultAsync(process.StandardOutput, 2, token).ConfigureAwait(false);
-            return CodexUsage.Parse(result);
+            return CodexUsage.Parse(result, email, planType);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
@@ -142,14 +181,13 @@ public static class CodexAppServer
             }
             catch (JsonException)
             {
-                // Ignore unrelated lines sent by CLI wrappers.
             }
         }
 
         throw new CodexUnavailableException("The Codex CLI exited before returning usage.");
     }
 
-    private static string? FindOnPath(string name) => PathDirectories()
+    internal static string? FindOnPath(string name) => PathDirectories()
         .Select(directory => Path.Combine(directory, name))
         .FirstOrDefault(File.Exists);
 
