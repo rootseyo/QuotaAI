@@ -8,8 +8,7 @@ The default menu bar view shows the 5-hour limit on top and the weekly limit
 below for providers with both windows. Settings lists each provider and lets
 you choose which ones appear in the menu bar.
 
-QuotaAI is based on [AgentMeter](https://github.com/fdtorres1/AgentMeter) by
-Felix Torres. See the [MIT license](LICENSE).
+![QuotaAI in the macOS menu bar showing Codex, Claude, and Antigravity quotas](docs/screenshots/macos-menubar.png)
 
 ## Windows preview
 
@@ -19,7 +18,7 @@ providers side by side. The widget supports multiple Codex accounts and can stay
 above other windows. Open **Settings → Providers** to choose what appears, or
 **Settings → Display** to change the widget and tray options.
 
-![QuotaAI Windows desktop widget showing sample Codex, Cursor, and Claude quotas](Windows/Screenshots/widget.png)
+![QuotaAI Windows desktop widget showing Codex, Claude, and Antigravity quotas](Windows/Screenshots/widget.png)
 
 ![QuotaAI Windows Display settings with the always-on-top option and quota colors](Windows/Screenshots/settings.png)
 
@@ -137,9 +136,16 @@ QuotaAI is open source (MIT) so you can verify exactly what it does:
 
 ## Install
 
-When available, download `QuotaAI.zip` from
+Download **QuotaAI-macOS.zip** (Apple silicon, macOS 14+) from
 [GitHub Releases](https://github.com/rootseyo/QuotaAI/releases), unzip it, and
-drag `QuotaAI.app` to `/Applications`. You can also build it locally.
+drag `QuotaAI.app` to `/Applications`. Preview builds are not notarized yet, so
+the first time run:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/QuotaAI.app
+```
+
+or right-click the app and choose **Open**. You can also build it locally.
 
 ### Build from source
 
@@ -232,6 +238,9 @@ If QuotaAI saves you from a surprise rate limit, you can
 [buy me a coffee](https://buymeacoffee.com/seyo). Entirely optional.
 
 ## Credits
+
+QuotaAI is based on [AgentMeter](https://github.com/fdtorres1/AgentMeter) by
+Felix Torres. See the [MIT license](LICENSE).
 
 Endpoint formats were validated against the excellent open-source
 [CodexBar](https://github.com/steipete/CodexBar) by Peter Steinberger.

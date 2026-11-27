@@ -1,0 +1,69 @@
+name: macOS preview
+
+# Builds an ad-hoc signed QuotaAI.app and, for `macos-preview-X.Y.Z` tags,
+# publishes QuotaAI-macOS.zip as a GitHub prerelease. Signed and notarized
+# releases still go through scripts/release.sh (see docs/RELEASING.md).
+on:
+  push:
+    tags: ['macos-preview-*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Derive version
+        id: version
+        run: |
+          if [[ "$GITHUB_REF_NAME" == macos-preview-* ]]; then
+            echo "version=${GITHUB_REF_NAME#macos-preview-}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=0.0.0-dev" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Test
+        run: swift test
+      - name: Build QuotaAI.app
+        env:
+          QUOTAAI_VERSION: ${{ steps.version.outputs.version }}
+        run: scripts/bundle.sh
+      - name: Archive
+        run: ditto -c -k --sequesterRsrc --keepParent QuotaAI.app QuotaAI-macOS.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: QuotaAI-macOS
+          path: QuotaAI-macOS.zip
+          if-no-files-found: error
+  release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/macos-preview-')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: QuotaAI-macOS
+      - name: Publish macOS preview release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          NOTES=$(cat <<'EOF'
+          Ad-hoc signed macOS build for Apple silicon (macOS 14+).
+          It is not notarized: after unzipping and moving QuotaAI.app to /Applications, run
+          `xattr -dr com.apple.quarantine /Applications/QuotaAI.app` once, or right-click → Open.
+          EOF
+          )
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "QuotaAI-macOS.zip#QuotaAI for macOS" --clobber
+          else
+            gh release create "$RELEASE_TAG" "QuotaAI-macOS.zip#QuotaAI for macOS" \
+              --verify-tag --prerelease --latest=false \
+              --title "QuotaAI macOS Preview (${RELEASE_TAG#macos-preview-})" \
+              --notes "$NOTES"
+          fi

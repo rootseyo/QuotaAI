@@ -3,6 +3,28 @@
 All notable changes to AgentMeter. Format follows [Keep a Changelog](https://keepachangelog.com);
 versions follow semantic-ish `MAJOR.MINOR.PATCH`.
 
+## [1.13.0] — 2026-11-27
+
+### Added
+- macOS preview builds: pushing a `macos-preview-X.Y.Z` tag builds an ad-hoc
+  signed `QuotaAI-macOS.zip` in GitHub Actions and publishes it as a release.
+- README screenshots of the macOS menu bar and the Windows widget.
+
+### Changed
+- README: AgentMeter attribution moved to Credits.
+- Claude (subscription): an expired Claude Code token is refreshed once and
+  kept in memory until Claude Code writes new credentials, instead of being
+  refreshed again on every poll. Concurrent refreshes share one request.
+- Claude: back off after HTTP 429 (honouring `Retry-After`) and after a
+  rejected refresh token, and reuse a usage reading younger than ~1 minute
+  unless refreshed manually.
+- Claude: show the weekly Sonnet limit when Anthropic reports it.
+
+### Fixed
+- Claude: a revoked-but-unexpired token is refreshed once instead of showing
+  "Not signed in"; an unrecoverable sign-in now says to run `claude` again.
+- Claude: the "Anthropic returned HTTP …" error is localized again.
+
 ## [1.12.1] — 2026-09-25
 
 ### Fixed
