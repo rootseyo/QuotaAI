@@ -170,6 +170,9 @@ internal sealed class SettingsForm : Form
         aboutBtn.Click += (_, _) => ShowAboutDialog();
         diagRow.Controls.Add(copyDiagBtn);
         diagRow.Controls.Add(aboutBtn);
+        var donateLink = CreateWebLink("Donate ↗", "https://buymeacoffee.com/seyo");
+        donateLink.Margin = new Padding(S(12), S(8), 0, 0);
+        diagRow.Controls.Add(donateLink);
         diagCard.Controls.Add(diagRow);
         diagCard.Controls.Add(CreateCaptionLabel("Copies redacted troubleshooting info to the clipboard — never includes keys or tokens."));
 

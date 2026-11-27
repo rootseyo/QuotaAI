@@ -1,7 +1,7 @@
 # QuotaAI
 
-QuotaAI is a macOS menu bar app for seeing how much AI coding quota you have
-left. It shows remaining percentages, reset times, and API spend or balances.
+QuotaAI tracks AI coding quotas from the macOS menu bar or a Windows desktop
+widget. It shows remaining percentages, reset times, and API spend or balances.
 A read-only CLI gives scripts and coding agents access to the same usage data.
 
 The default menu bar view shows the 5-hour limit on top and the weekly limit
@@ -11,8 +11,20 @@ you choose which ones appear in the menu bar.
 QuotaAI is based on [AgentMeter](https://github.com/fdtorres1/AgentMeter) by
 Felix Torres. See the [MIT license](LICENSE).
 
-A [Windows preview](Windows/README.md) provides a tray icon and an optional
-always-on-top Codex quota widget.
+## Windows preview
+
+QuotaAI for Windows runs in the notification area. Hover over the tray icon for
+a quick usage summary, or open the desktop widget to see your configured
+providers side by side. The widget supports multiple Codex accounts and can stay
+above other windows. Open **Settings → Providers** to choose what appears, or
+**Settings → Display** to change the widget and tray options.
+
+![QuotaAI Windows desktop widget showing sample Codex, Cursor, and Claude quotas](Windows/Screenshots/widget.png)
+
+![QuotaAI Windows Display settings with the always-on-top option and quota colors](Windows/Screenshots/settings.png)
+
+Download the standalone Windows x64 **QuotaAI.exe** from [GitHub Releases](https://github.com/rootseyo/QuotaAI/releases).
+See the [Windows guide](Windows/README.md) for controls and build instructions.
 
 ## Providers
 
