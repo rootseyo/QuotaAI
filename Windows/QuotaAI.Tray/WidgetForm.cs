@@ -464,6 +464,12 @@ internal sealed class WidgetForm : Form
                 return [new BarLine(topLabel, "--", null), new BarLine(bottomLabel, "--", null)];
 
             var (win1, win2) = FindTwoWindows(provider.Id, state.Usage.Windows);
+            // Plans without one of the windows (e.g. no 5h limit) show only the
+            // window they have, centered, instead of a "--" placeholder line.
+            if (win1 is null && win2 is not null)
+                return [FormatWindowBarLine(bottomLabel, win2, dir)];
+            if (win2 is null && win1 is not null)
+                return [FormatWindowBarLine(topLabel, win1, dir)];
             return
             [
                 FormatWindowBarLine(topLabel, win1, dir),

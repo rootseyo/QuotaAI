@@ -108,6 +108,18 @@ public static class TrayTooltipFormatter
         var (l1, v1, l2, v2, isTwoWindow) = ExtractFiveHourAndWeekly(entry.Id, entry.State.Usage, direction);
         if (isTwoWindow)
         {
+            // Only one window reported (e.g. a plan without a 5h limit): show it alone.
+            if (v1 is null ^ v2 is null)
+            {
+                var (label, value) = v1 is { } only1 ? (l1, only1) : (l2, v2!.Value);
+                return tier switch
+                {
+                    0 => $"{name}: {label} {value}%{staleSuffix}",
+                    1 => $"{name} {label} {value}%",
+                    _ => $"{entry.ShortCode} {label} {value}%"
+                };
+            }
+
             var s1 = v1 is { } n1 ? $"{n1}%" : "--";
             var s2 = v2 is { } n2 ? $"{n2}%" : "--";
             return tier switch

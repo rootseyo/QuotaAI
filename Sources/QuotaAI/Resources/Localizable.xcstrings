@@ -1421,16 +1421,6 @@
         }
       }
     },
-    "Claude token refresh failed (HTTP %lld)": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Error al actualizar el token de Claude (HTTP %lld)"
-          }
-        }
-      }
-    },
     "Codex CLI not found": {
       "localizations": {
         "en": {
@@ -4335,18 +4325,18 @@
         }
       }
     },
-    "Claude Code sign-in expired — run claude in Terminal to sign in again": {
+    "Claude Code sign-in expired — run Claude Code once to refresh it": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Claude Code sign-in expired — run claude in Terminal to sign in again"
+            "value": "Claude Code sign-in expired — run Claude Code once to refresh it"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "La sesión de Claude Code caducó: ejecuta claude en Terminal para volver a iniciar sesión"
+            "value": "La sesión de Claude Code caducó: abre Claude Code una vez para renovarla"
           }
         }
       }

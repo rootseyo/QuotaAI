@@ -94,19 +94,18 @@ announcement drafts, environment specifics) and complements this file.
   (used/limit cents) for team/enterprise accounts.
 - **Claude**: OAuth creds from `~/.claude/.credentials.json`, falling back to
   Keychain item `Claude Code-credentials`. `expiresAt` is in **milliseconds**.
-  Refresh: POST form-encoded to `https://platform.claude.com/v1/oauth/token`
-  with client_id `9d1c250a-e61b-44d9-88ed-5944d1962f5e` (public). Usage:
+  READ-ONLY (macOS and Windows): QuotaAI NEVER refreshes the token. Anthropic
+  refresh tokens are single-use, so refreshing Claude Code's token would sign
+  Claude Code out. An expired token (or a 401) is reported as "sign-in
+  expired — run Claude Code once"; Claude Code renews it itself. Usage:
   `GET https://api.anthropic.com/api/oauth/usage` with
   `anthropic-beta: oauth-2025-04-20` and a `claude-code/x.y.z` User-Agent;
-  windows `five_hour`/`seven_day`/`seven_day_opus` with `utilization` percent
-  and `resets_at` ISO8601. NOTE: the token endpoint rate-limits aggressively
-  (HTTP 429 even for invalid tokens), so treat refresh failures gently.
-  `ClaudeSessionCache` (actor, memory only, keyed by a SHA-256 of the stored
-  refresh token) keeps the refreshed token until Claude Code rewrites its
-  credentials, coalesces refresh/usage requests, backs off on 429
-  (`Retry-After`, else 60 s usage / 5 min refresh) and on rejected refresh
-  tokens, and reuses usage < 55 s old unless `forceRefresh`. A 401 on an
-  unexpired token triggers one refresh. Also maps `seven_day_sonnet`.
+  windows `five_hour`/`seven_day`/`seven_day_opus`/`seven_day_sonnet` with
+  `utilization` percent and `resets_at` ISO8601 (Pro may omit `five_hour`).
+  The usage rate limit is shared with Claude Code, so `ClaudeSessionCache`
+  (actor, memory only, keyed by a SHA-256 of the access token) coalesces
+  requests, backs off on 429 (`Retry-After`, else 60 s), and reuses usage
+  < 55 s old unless `forceRefresh`.
 - **Claude API** (`claude-api`, v1.12.0): separate from subscription Claude.
   Keychain API key must have organization reporting access. Read-only GET
   `/v1/organizations/cost_report` and `/v1/organizations/usage_report/messages`

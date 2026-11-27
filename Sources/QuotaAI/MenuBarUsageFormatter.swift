@@ -44,9 +44,15 @@ enum MenuBarUsageFormatter {
                          stale: isStale(state), unavailable: state.usage == nil)
         }
         let showsModelLabels = id == "gemini" && code != "Ag"
-        let lines = pairs.map { label, source in
+        var lines = pairs.map { label, source in
             let value = windows.first(where: { $0.label == source }).flatMap { remaining($0.usedPercent) }
             return Line(label: label, remaining: value, showsLabel: showsModelLabels)
+        }
+        // Plans without a window (e.g. no 5h limit) show only the windows they
+        // have, centered, instead of a "--" placeholder. Keep placeholders
+        // while there is no usage at all (loading/error).
+        if !showsModelLabels, state.usage != nil, lines.contains(where: { $0.remaining != nil }) {
+            lines.removeAll { $0.remaining == nil }
         }
         return Entry(id: id, code: code, name: name, lines: lines,
                      stale: isStale(state), unavailable: state.usage == nil)

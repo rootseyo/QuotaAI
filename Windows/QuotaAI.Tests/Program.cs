@@ -106,6 +106,14 @@ finally
     Check(tip.Contains("Antigravity: 5h 92% · 7d 23%"), "Format Antigravity 5h/7d remaining");
     Check(tip.Length <= TrayTooltipFormatter.MaxWin32TooltipLength, "Stay within 127-char Win32 tooltip limit");
 
+    var weeklyOnly = TrayTooltipFormatter.Format(
+        [new("claude", "Cl", "Claude", ProviderState.Ready(new ProviderUsage("Pro", [
+            new UsageWindow("Weekly limit", 30, now.AddDays(3))
+        ], now)))],
+        CountDirection.Remaining, TrayDisplayStyle.TwoLineRemaining, TrayBarStyle.Full);
+    Check(weeklyOnly.Contains("Claude: 7d 70%") && !weeklyOnly.Contains("--"),
+        $"Show only the weekly window when there is no 5h limit ({weeklyOnly})");
+
     // Stress-test with 10 providers enabled
     var crowded = Enumerable.Range(1, 10).Select(i =>
         new TrayTooltipFormatter.EntryInput($"codex:{i}", $"C{i}", $"Codex Account Number {i}", entries[0].State)).ToList();

@@ -18,8 +18,8 @@ final class MenuBarUsageFormatterTests: XCTestCase {
     func testCodexMappingAndMissingWindows() {
         let cases: [([UsageWindow], [String])] = [
             ([window(L("5h limit"), 25), window(L("Weekly limit"), 58)], ["75%", "42%"]),
-            ([window(L("5h limit"), 25)], ["75%", "--"]),
-            ([window(L("Weekly limit"), 58)], ["--", "42%"]),
+            ([window(L("5h limit"), 25)], ["75%"]),
+            ([window(L("Weekly limit"), 58)], ["42%"]),
             ([], ["--", "--"])
         ]
         for (windows, expected) in cases {
@@ -29,7 +29,7 @@ final class MenuBarUsageFormatterTests: XCTestCase {
     }
     func testClaudeAndGeminiMapping() {
         let claude = MenuBarUsageFormatter.entry(id: "claude", code: "Cl", name: "Claude", state: .ready(usage([window(L("Weekly (Opus)"), 99), window(L("Weekly limit"), 40)])))
-        XCTAssertEqual(claude.lines.map(\.text), ["--", "60%"])
+        XCTAssertEqual(claude.lines.map(\.text), ["60%"])
         let gemini = MenuBarUsageFormatter.entry(id: "gemini", code: "Ge", name: "Gemini", state: .ready(usage([window(L("Flash (24h)"), 35)])))
         XCTAssertEqual(gemini.lines.map(\.text), ["Pro --", "Fl 65%"])
     }

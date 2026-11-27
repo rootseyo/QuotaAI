@@ -5,9 +5,10 @@ import Security
 /// Claude Code usage from Anthropic's OAuth usage endpoint, authenticated with
 /// the token that the Claude CLI stores locally (credentials file or Keychain).
 ///
-/// The token is read fresh on each fetch. When it has expired, it is refreshed
-/// once and the result is kept in memory (`ClaudeSessionCache`) until Claude
-/// Code itself writes new credentials — never written back to disk.
+/// Read-only: the token is read fresh on each fetch and never refreshed here.
+/// Anthropic refresh tokens are single-use, so refreshing Claude Code's token
+/// would sign Claude Code out. When the stored token has expired we report it
+/// and wait for Claude Code to renew it the next time it runs.
 struct ClaudeProvider: UsageProvider {
     let id = "claude"
     let displayName = "Claude"
@@ -23,8 +24,6 @@ struct ClaudeProvider: UsageProvider {
     static let sharedCache = ClaudeSessionCache()
 
     static let usageURL = URL(string: "https://api.anthropic.com/api/oauth/usage")!
-    static let tokenURL = URL(string: "https://platform.claude.com/v1/oauth/token")!
-    static let oauthClientID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
     static let betaHeader = "oauth-2025-04-20"
     static let userAgent = "claude-code/2.1.0"
 
@@ -54,7 +53,6 @@ struct ClaudeProvider: UsageProvider {
 
     struct Credentials: Equatable, Sendable {
         var accessToken: String
-        var refreshToken: String?
         var expiresAt: Date?
         var subscriptionType: String?
 
@@ -62,15 +60,14 @@ struct ClaudeProvider: UsageProvider {
 
         func isExpired(at now: Date) -> Bool {
             guard let expiresAt else { return false }
-            // Refresh a minute early to avoid racing the expiry.
-            return expiresAt.timeIntervalSince(now) < 60
+            // Treat a token about to expire as expired to avoid a racing 401.
+            return expiresAt.timeIntervalSince(now) < 30
         }
 
-        /// Stable, non-reversible identity of the stored sign-in. Changes when
-        /// Claude Code refreshes or the user signs in again.
+        /// Stable, non-reversible identity of the stored token. Changes when
+        /// Claude Code renews it or the user signs in again.
         var identity: String {
-            let material = refreshToken ?? accessToken
-            return SHA256.hash(data: Data(material.utf8))
+            SHA256.hash(data: Data(accessToken.utf8))
                 .map { String(format: "%02x", $0) }.joined()
         }
     }
@@ -78,7 +75,6 @@ struct ClaudeProvider: UsageProvider {
     private struct CredentialsFile: Decodable {
         struct OAuth: Decodable {
             let accessToken: String
-            let refreshToken: String?
             let expiresAt: Double?
             let subscriptionType: String?
         }
@@ -106,64 +102,14 @@ struct ClaudeProvider: UsageProvider {
             // Anthropic stores expiry in milliseconds since epoch.
             Date(timeIntervalSince1970: $0 / 1000)
         }
-        let refresh = file.claudeAiOauth.refreshToken.flatMap { $0.isEmpty ? nil : $0 }
         return Credentials(
             accessToken: file.claudeAiOauth.accessToken,
-            refreshToken: refresh,
             expiresAt: expiresAt,
             subscriptionType: file.claudeAiOauth.subscriptionType
         )
     }
 
     // MARK: - Networking
-
-    static func refresh(refreshToken: String) async throws -> TokenGrant {
-        var request = URLRequest(url: tokenURL)
-        request.httpMethod = "POST"
-        request.timeoutInterval = 20
-        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        var components = URLComponents()
-        components.queryItems = [
-            URLQueryItem(name: "grant_type", value: "refresh_token"),
-            URLQueryItem(name: "refresh_token", value: refreshToken),
-            URLQueryItem(name: "client_id", value: oauthClientID),
-        ]
-        request.httpBody = (components.percentEncodedQuery ?? "").data(using: .utf8)
-
-        let (data, response) = try await HTTP.session.data(for: request)
-        guard let http = response as? HTTPURLResponse else { throw ClaudeError.badResponse }
-        switch http.statusCode {
-        case 200:
-            break
-        case 429:
-            throw ClaudeError.rateLimited(retryAfter: retryAfter(http))
-        case 400, 401, 403:
-            // invalid_grant: the refresh token was revoked or already rotated.
-            throw ClaudeError.sessionExpired
-        default:
-            throw ClaudeError.refreshFailed(http.statusCode)
-        }
-
-        struct TokenResponse: Decodable {
-            let accessToken: String
-            let refreshToken: String?
-            let expiresIn: Double?
-            enum CodingKeys: String, CodingKey {
-                case accessToken = "access_token"
-                case refreshToken = "refresh_token"
-                case expiresIn = "expires_in"
-            }
-        }
-        guard let token = try? JSONDecoder().decode(TokenResponse.self, from: data) else {
-            throw ClaudeError.badResponse
-        }
-        return TokenGrant(
-            accessToken: token.accessToken,
-            refreshToken: token.refreshToken,
-            expiresIn: token.expiresIn
-        )
-    }
 
     static func fetchUsage(accessToken: String) async throws -> UsageResponse {
         var request = URLRequest(url: usageURL)
@@ -261,43 +207,28 @@ struct ClaudeProvider: UsageProvider {
     }
 }
 
-/// Result of an OAuth refresh-token grant.
-struct TokenGrant: Equatable, Sendable {
-    var accessToken: String
-    var refreshToken: String?
-    var expiresIn: TimeInterval?
-}
-
 /// Network seam so the session logic can be tested without Anthropic.
 struct ClaudeTransport: Sendable {
-    var refresh: @Sendable (_ refreshToken: String) async throws -> TokenGrant
     var usage: @Sendable (_ accessToken: String) async throws -> ClaudeProvider.UsageResponse
 
     static let live = ClaudeTransport(
-        refresh: { try await ClaudeProvider.refresh(refreshToken: $0) },
         usage: { try await ClaudeProvider.fetchUsage(accessToken: $0) }
     )
 }
 
-/// In-memory session state for the Claude provider:
-/// - keeps a refreshed token for the current stored sign-in, so an expired
-///   on-disk token costs one refresh instead of one per poll;
-/// - coalesces concurrent refreshes and usage requests;
-/// - backs off after 429s (honouring `Retry-After`) and after a rejected
-///   refresh token, because Anthropic's token endpoint rate-limits hard;
-/// - reuses a usage response younger than `minimumUsageInterval` unless the
-///   user explicitly refreshes.
-/// Everything is keyed by `Credentials.identity`, so signing in again or
-/// Claude Code rewriting its credentials starts fresh. Nothing is persisted.
+/// In-memory request state for the Claude provider (nothing is persisted):
+/// - an expired stored token is reported without touching the network;
+/// - concurrent usage requests share one call;
+/// - after HTTP 429 it backs off (honouring `Retry-After`), because the usage
+///   endpoint's rate limit is shared with Claude Code itself;
+/// - a usage response younger than `minimumUsageInterval` is reused unless
+///   the user explicitly refreshes.
+/// State is keyed by `Credentials.identity`, so a renewed token starts fresh.
 actor ClaudeSessionCache {
     static let minimumUsageInterval: TimeInterval = 55
     static let defaultUsageBackoff: TimeInterval = 60
-    static let defaultRefreshBackoff: TimeInterval = 5 * 60
 
     private var identity: String?
-    private var refreshed: ClaudeProvider.Credentials?
-    private var refreshTask: Task<ClaudeProvider.Credentials, Error>?
-    private var refreshBlocked: (until: Date, error: ClaudeError)?
     private var usageBlockedUntil: Date?
     private var lastUsage: (response: ClaudeProvider.UsageResponse, at: Date)?
     private var usageTask: Task<ClaudeProvider.UsageResponse, Error>?
@@ -310,6 +241,7 @@ actor ClaudeSessionCache {
     ) async throws -> ClaudeProvider.UsageResponse {
         adopt(identity: stored.identity)
 
+        if stored.isExpired(at: now) { throw ClaudeError.sessionExpired }
         if !forceRefresh, let last = lastUsage,
            now.timeIntervalSince(last.at) < Self.minimumUsageInterval {
             return last.response
@@ -322,13 +254,16 @@ actor ClaudeSessionCache {
         }
 
         let key = stored.identity
-        let task = Task { try await self.performUsage(stored: stored, now: now, transport: transport) }
+        let token = stored.accessToken
+        let task = Task { try await transport.usage(token) }
         usageTask = task
         defer { if identity == key { usageTask = nil } }
         do {
             let response = try await task.value
             if identity == key { lastUsage = (response, Date()) }
             return response
+        } catch ClaudeError.unauthorized {
+            throw ClaudeError.sessionExpired
         } catch let error as ClaudeError {
             if identity == key, case .rateLimited(let retryAfter) = error {
                 usageBlockedUntil = Date().addingTimeInterval(retryAfter ?? Self.defaultUsageBackoff)
@@ -337,87 +272,10 @@ actor ClaudeSessionCache {
         }
     }
 
-    private func performUsage(
-        stored: ClaudeProvider.Credentials,
-        now: Date,
-        transport: ClaudeTransport
-    ) async throws -> ClaudeProvider.UsageResponse {
-        let creds = try await validCredentials(stored: stored, now: now, transport: transport)
-        do {
-            return try await transport.usage(creds.accessToken)
-        } catch ClaudeError.unauthorized {
-            // The token was revoked before its stated expiry: refresh once.
-            guard stored.refreshToken != nil else { throw ClaudeError.sessionExpired }
-            let renewed = try await refreshCredentials(stored: stored, transport: transport)
-            do {
-                return try await transport.usage(renewed.accessToken)
-            } catch ClaudeError.unauthorized {
-                throw ClaudeError.sessionExpired
-            }
-        }
-    }
-
-    private func validCredentials(
-        stored: ClaudeProvider.Credentials,
-        now: Date,
-        transport: ClaudeTransport
-    ) async throws -> ClaudeProvider.Credentials {
-        if !stored.isExpired(at: now) { return stored }
-        if let refreshed, !refreshed.isExpired(at: now) { return refreshed }
-        return try await refreshCredentials(stored: stored, transport: transport)
-    }
-
-    private func refreshCredentials(
-        stored: ClaudeProvider.Credentials,
-        transport: ClaudeTransport
-    ) async throws -> ClaudeProvider.Credentials {
-        if let refreshTask { return try await refreshTask.value }
-        if let blocked = refreshBlocked, blocked.until > Date() { throw blocked.error }
-        // A rotated refresh token from our previous refresh supersedes the stored one.
-        guard let refreshToken = refreshed?.refreshToken ?? stored.refreshToken else {
-            throw ClaudeError.sessionExpired
-        }
-
-        let key = stored.identity
-        let task = Task { () throws -> ClaudeProvider.Credentials in
-            let grant = try await transport.refresh(refreshToken)
-            return ClaudeProvider.Credentials(
-                accessToken: grant.accessToken,
-                refreshToken: grant.refreshToken ?? refreshToken,
-                expiresAt: grant.expiresIn.map { Date().addingTimeInterval($0) },
-                subscriptionType: stored.subscriptionType
-            )
-        }
-        refreshTask = task
-        defer { if identity == key { refreshTask = nil } }
-        do {
-            let creds = try await task.value
-            if identity == key {
-                refreshed = creds
-                refreshBlocked = nil
-            }
-            return creds
-        } catch let error as ClaudeError {
-            if identity == key {
-                let delay: TimeInterval
-                if case .rateLimited(let retryAfter) = error {
-                    delay = retryAfter ?? Self.defaultRefreshBackoff
-                } else {
-                    delay = Self.defaultRefreshBackoff
-                }
-                refreshBlocked = (Date().addingTimeInterval(delay), error)
-            }
-            throw error
-        }
-    }
-
-    /// Drops all state when the stored sign-in changes.
+    /// Drops all state when the stored token changes.
     private func adopt(identity newIdentity: String) {
         guard identity != newIdentity else { return }
         identity = newIdentity
-        refreshed = nil
-        refreshTask = nil
-        refreshBlocked = nil
         usageBlockedUntil = nil
         lastUsage = nil
         usageTask = nil
@@ -429,7 +287,6 @@ enum ClaudeError: LocalizedError, Equatable {
     case sessionExpired
     case unauthorized
     case rateLimited(retryAfter: TimeInterval?)
-    case refreshFailed(Int)
     case badResponse
     case httpStatus(Int)
 
@@ -437,9 +294,8 @@ enum ClaudeError: LocalizedError, Equatable {
         switch self {
         case .notSignedIn: return L("Not signed in to Claude Code")
         case .sessionExpired, .unauthorized:
-            return L("Claude Code sign-in expired — run claude in Terminal to sign in again")
+            return L("Claude Code sign-in expired — run Claude Code once to refresh it")
         case .rateLimited: return L("Anthropic rate-limited the usage request")
-        case .refreshFailed(let code): return L("Claude token refresh failed (HTTP \(code))")
         case .badResponse: return L("Unexpected response from Anthropic")
         case .httpStatus(let code): return L("Anthropic returned HTTP \(code)")
         }

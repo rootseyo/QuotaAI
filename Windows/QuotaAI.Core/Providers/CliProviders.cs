@@ -201,11 +201,12 @@ public sealed class CodexProvider : IUsageProvider
 public sealed class ClaudeProvider : IUsageProvider
 {
     private const string UsageUrl = "https://api.anthropic.com/api/oauth/usage";
-    private const string TokenUrl = "https://platform.claude.com/v1/oauth/token";
-    private const string OAuthClientId = "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
     private const string BetaHeader = "oauth-2025-04-20";
     private const string UserAgentValue = "claude-code/2.1.0";
     private const string WinCredTarget = "Claude Code-credentials";
+
+    private const string ExpiredMessage =
+        "Claude Code sign-in expired. Run Claude Code once to refresh it.";
 
     public string Id => "claude";
     public string DisplayName => "Claude";
@@ -237,9 +238,12 @@ public sealed class ClaudeProvider : IUsageProvider
 
     public async Task<ProviderUsage> FetchAsync(bool forceRefresh, CancellationToken cancellationToken)
     {
+        // Read-only: never use Claude Code's refresh token. Refresh tokens are
+        // single-use, so refreshing here would sign Claude Code out. Claude Code
+        // renews the stored token itself the next time it runs.
         var creds = LoadCredentials();
-        if (creds.ExpiresAt is { } exp && exp <= DateTimeOffset.UtcNow.AddSeconds(60))
-            creds = await RefreshTokenAsync(creds.RefreshToken, creds.SubscriptionType, cancellationToken).ConfigureAwait(false);
+        if (creds.ExpiresAt is { } exp && exp <= DateTimeOffset.UtcNow.AddSeconds(30))
+            throw new ProviderUnavailableException(ExpiredMessage);
 
         using var req = new HttpRequestMessage(HttpMethod.Get, UsageUrl);
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", creds.AccessToken);
@@ -249,7 +253,7 @@ public sealed class ClaudeProvider : IUsageProvider
 
         using var resp = await SharedHttp.Client.SendAsync(req, cancellationToken).ConfigureAwait(false);
         if (resp.StatusCode == HttpStatusCode.Unauthorized)
-            throw new ProviderUnavailableException("Not signed in to Claude Code.");
+            throw new ProviderUnavailableException(ExpiredMessage);
         if (resp.StatusCode == HttpStatusCode.TooManyRequests)
             throw new ProviderUnavailableException("Anthropic rate-limited the usage request.");
         if (!resp.IsSuccessStatusCode)
@@ -277,6 +281,7 @@ public sealed class ClaudeProvider : IUsageProvider
         AddWindow("five_hour", "5h limit");
         AddWindow("seven_day", "Weekly limit");
         AddWindow("seven_day_opus", "Weekly (Opus)");
+        AddWindow("seven_day_sonnet", "Weekly (Sonnet)");
 
         var plan = string.IsNullOrWhiteSpace(subscriptionType)
             ? null
@@ -284,7 +289,7 @@ public sealed class ClaudeProvider : IUsageProvider
         return new ProviderUsage(plan, windows, now);
     }
 
-    private sealed record Credentials(string AccessToken, string RefreshToken, DateTimeOffset? ExpiresAt, string? SubscriptionType);
+    private sealed record Credentials(string AccessToken, DateTimeOffset? ExpiresAt, string? SubscriptionType);
 
     private static Credentials LoadCredentials()
     {
@@ -317,8 +322,7 @@ public sealed class ClaudeProvider : IUsageProvider
             if (!doc.RootElement.TryGetProperty("claudeAiOauth", out var oauth) || oauth.ValueKind != JsonValueKind.Object)
                 return null;
             var access = oauth.TryGetProperty("accessToken", out var a) ? a.GetString() : null;
-            var refresh = oauth.TryGetProperty("refreshToken", out var r) ? r.GetString() : null;
-            if (string.IsNullOrWhiteSpace(access) || string.IsNullOrWhiteSpace(refresh))
+            if (string.IsNullOrWhiteSpace(access))
                 return null;
 
             DateTimeOffset? expiresAt = null;
@@ -328,48 +332,12 @@ public sealed class ClaudeProvider : IUsageProvider
             var sub = oauth.TryGetProperty("subscriptionType", out var s) && s.ValueKind == JsonValueKind.String
                 ? s.GetString()
                 : null;
-            return new Credentials(access, refresh, expiresAt, sub);
+            return new Credentials(access, expiresAt, sub);
         }
         catch (JsonException)
         {
             return null;
         }
-    }
-
-    private static async Task<Credentials> RefreshTokenAsync(
-        string refreshToken, string? plan, CancellationToken cancellationToken)
-    {
-        using var req = new HttpRequestMessage(HttpMethod.Post, TokenUrl)
-        {
-            Content = new FormUrlEncodedContent(
-            [
-                new KeyValuePair<string, string>("grant_type", "refresh_token"),
-                new KeyValuePair<string, string>("refresh_token", refreshToken),
-                new KeyValuePair<string, string>("client_id", OAuthClientId)
-            ])
-        };
-        req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-
-        using var resp = await SharedHttp.Client.SendAsync(req, cancellationToken).ConfigureAwait(false);
-        if (resp.StatusCode == HttpStatusCode.TooManyRequests)
-            throw new ProviderUnavailableException("Anthropic rate-limited token refresh.");
-        if (!resp.IsSuccessStatusCode)
-            throw new ProviderUnavailableException($"Claude token refresh failed (HTTP {(int)resp.StatusCode}).");
-
-        using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
-        var root = doc.RootElement;
-        var access = root.TryGetProperty("access_token", out var at) ? at.GetString() : null;
-        if (string.IsNullOrWhiteSpace(access))
-            throw new ProviderUnavailableException("Unexpected token response from Anthropic.");
-
-        var nextRefresh = root.TryGetProperty("refresh_token", out var rt) && rt.ValueKind == JsonValueKind.String
-            ? rt.GetString() ?? refreshToken
-            : refreshToken;
-        DateTimeOffset? expiresAt = null;
-        if (root.TryGetProperty("expires_in", out var ei) && ei.TryGetDouble(out var secs) && secs > 0)
-            expiresAt = DateTimeOffset.UtcNow.AddSeconds(secs);
-
-        return new Credentials(access, nextRefresh, expiresAt, plan);
     }
 }
 

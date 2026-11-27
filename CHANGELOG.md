@@ -3,6 +3,17 @@
 All notable changes to AgentMeter. Format follows [Keep a Changelog](https://keepachangelog.com);
 versions follow semantic-ish `MAJOR.MINOR.PATCH`.
 
+## [Unreleased]
+
+### Changed
+- Claude is now read-only on macOS and Windows: QuotaAI no longer refreshes
+  Claude Code's OAuth token. Anthropic refresh tokens are single-use, so
+  refreshing them could sign Claude Code out. When the stored token expires,
+  QuotaAI shows the last reading and asks you to run Claude Code once.
+- Menu bar and Windows widget: when a plan has only one of the 5h / weekly
+  limits (e.g. no 5h limit), show that one line instead of a `--` placeholder.
+- Windows: show the weekly Sonnet limit for Claude.
+
 ## [1.13.0] — 2026-11-27
 
 ### Added
