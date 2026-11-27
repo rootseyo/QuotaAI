@@ -168,6 +168,8 @@
 	<string>Límite de solicitudes de informes de Claude API alcanzado (HTTP 429)</string>
 	<key>Claude API reporting returned HTTP %@</key>
 	<string>Los informes de Claude API devolvieron HTTP %@</string>
+	<key>Claude Code sign-in expired — run claude in Terminal to sign in again</key>
+	<string>La sesión de Claude Code caducó: ejecuta claude en Terminal para volver a iniciar sesión</string>
 	<key>Claude token refresh failed (HTTP %lld)</key>
 	<string>Error al actualizar el token de Claude (HTTP %lld)</string>
 	<key>Codex CLI not found</key>
@@ -574,6 +576,8 @@
 	<string>Sitio web y código fuente</string>
 	<key>Weekly (Opus)</key>
 	<string>Semanal (Opus)</string>
+	<key>Weekly (Sonnet)</key>
+	<string>Semanal (Sonnet)</string>
 	<key>Weekly limit</key>
 	<string>Límite semanal</string>
 	<key>Window</key>

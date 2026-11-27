@@ -108,6 +108,8 @@
 	<string>Claude API reporting rate limited (HTTP 429)</string>
 	<key>Claude API reporting returned HTTP %@</key>
 	<string>Claude API reporting returned HTTP %@</string>
+	<key>Claude Code sign-in expired — run claude in Terminal to sign in again</key>
+	<string>Claude Code sign-in expired — run claude in Terminal to sign in again</string>
 	<key>Codex CLI not found</key>
 	<string>Codex CLI not found</string>
 	<key>Codex accounts</key>
@@ -352,6 +354,8 @@
 	<string>Waiting for browser authorization…</string>
 	<key>Website &amp; source code</key>
 	<string>Website &amp; source code</string>
+	<key>Weekly (Sonnet)</key>
+	<string>Weekly (Sonnet)</string>
 	<key>Works for usage monitoring.</key>
 	<string>Works for usage monitoring.</string>
 	<key>Writes a machine-readable usage snapshot (never credentials) to Application Support for the quotaai command-line tool and other local agents.</key>

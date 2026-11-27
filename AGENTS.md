@@ -101,6 +101,12 @@ announcement drafts, environment specifics) and complements this file.
   windows `five_hour`/`seven_day`/`seven_day_opus` with `utilization` percent
   and `resets_at` ISO8601. NOTE: the token endpoint rate-limits aggressively
   (HTTP 429 even for invalid tokens), so treat refresh failures gently.
+  `ClaudeSessionCache` (actor, memory only, keyed by a SHA-256 of the stored
+  refresh token) keeps the refreshed token until Claude Code rewrites its
+  credentials, coalesces refresh/usage requests, backs off on 429
+  (`Retry-After`, else 60 s usage / 5 min refresh) and on rejected refresh
+  tokens, and reuses usage < 55 s old unless `forceRefresh`. A 401 on an
+  unexpired token triggers one refresh. Also maps `seven_day_sonnet`.
 - **Claude API** (`claude-api`, v1.12.0): separate from subscription Claude.
   Keychain API key must have organization reporting access. Read-only GET
   `/v1/organizations/cost_report` and `/v1/organizations/usage_report/messages`

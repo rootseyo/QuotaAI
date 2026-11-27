@@ -4318,6 +4318,38 @@
           }
         }
       }
+    },
+    "Weekly (Sonnet)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weekly (Sonnet)"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Semanal (Sonnet)"
+          }
+        }
+      }
+    },
+    "Claude Code sign-in expired — run claude in Terminal to sign in again": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude Code sign-in expired — run claude in Terminal to sign in again"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La sesión de Claude Code caducó: ejecuta claude en Terminal para volver a iniciar sesión"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
