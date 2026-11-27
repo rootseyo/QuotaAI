@@ -108,8 +108,8 @@
 	<string>Claude API reporting rate limited (HTTP 429)</string>
 	<key>Claude API reporting returned HTTP %@</key>
 	<string>Claude API reporting returned HTTP %@</string>
-	<key>Claude Code sign-in expired — run claude in Terminal to sign in again</key>
-	<string>Claude Code sign-in expired — run claude in Terminal to sign in again</string>
+	<key>Claude Code sign-in expired — run Claude Code once to refresh it</key>
+	<string>Claude Code sign-in expired — run Claude Code once to refresh it</string>
 	<key>Codex CLI not found</key>
 	<string>Codex CLI not found</string>
 	<key>Codex accounts</key>
