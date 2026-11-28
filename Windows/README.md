@@ -24,8 +24,11 @@ app (**General**, **Providers**, **Display**, and **Alerts**).
 QuotaAI checks this repository's GitHub Releases once a day (toggle in
 **Settings → General → Updates**, or use **Check for updates…** in the tray
 menu). When a newer `windows-preview-<version>` release exists it downloads
-`QuotaAI.exe`, verifies the SHA-256 digest GitHub publishes for the asset,
-swaps the executable, and restarts. If the folder is not writable, it offers the
+`QuotaAI.exe` and `QuotaAI.exe.sig`, checks the exact size, the SHA-256
+digest GitHub publishes for the asset, and an ECDSA P-256 signature made in CI
+with the release key (public half embedded in the app and kept in
+`Windows/update-signing.pub.pem`), then swaps the executable and restarts. If
+the new version cannot start, the swap is rolled back. If the folder is not writable, it offers the
 release page instead. Development builds (version `0.0.0`) never self-update.
 Updating requires a release built with this feature; older builds must be
 replaced manually once.
@@ -43,4 +46,7 @@ dotnet run --project Windows/QuotaAI.Tests -c Release
 The **Windows preview** GitHub Actions workflow publishes a self-contained
 single-file Windows x64 executable in the `QuotaAI-Windows-x64` artifact.
 Pushing a `windows-preview-*` tag also publishes that executable as a GitHub
-prerelease without changing the latest stable release.
+prerelease without changing the latest stable release. The release job signs
+the executable with the `WINDOWS_UPDATE_SIGNING_KEY` repository secret (the
+PEM private key matching `Windows/update-signing.pub.pem`) and fails if the
+secret is missing or does not match, so unsigned releases are never published.

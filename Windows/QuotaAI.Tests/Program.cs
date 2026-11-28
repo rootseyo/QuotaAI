@@ -19,20 +19,55 @@ Check(UpdateChecker.ParseTag("macos-preview-1.13.1") is null, "Ignore macOS tags
 Check(UpdateChecker.ParseTag("windows-preview-banana") is null, "Ignore malformed tags");
 Check(UpdateChecker.Normalize(new Version(2026, 11, 27)) < new Version(2026, 11, 27, 1), "Date build order");
 
-const string releasesJson = """
-[
- {"tag_name":"macos-preview-1.13.1","draft":false,"assets":[]},
- {"tag_name":"windows-preview-2026.12.01","draft":true,"html_url":"https://x","assets":[{"name":"QuotaAI.exe","size":1,"digest":"sha256:aa","browser_download_url":"https://github.com/rootseyo/QuotaAI/releases/download/windows-preview-2026.12.01/QuotaAI.exe"}]},
- {"tag_name":"windows-preview-2026.11.27.1","draft":false,"html_url":"https://github.com/rootseyo/QuotaAI/releases/tag/windows-preview-2026.11.27.1","assets":[{"name":"QuotaAI.exe","size":42,"digest":"sha256:ABCDEF","browser_download_url":"https://github.com/rootseyo/QuotaAI/releases/download/windows-preview-2026.11.27.1/QuotaAI.exe"}]},
- {"tag_name":"windows-preview-2026.11.27","draft":false,"assets":[{"name":"QuotaAI.exe","size":42,"digest":"sha256:00","browser_download_url":"https://github.com/rootseyo/QuotaAI/releases/download/windows-preview-2026.11.27/QuotaAI.exe"}]},
- {"tag_name":"windows-preview-2027.01.01","draft":false,"assets":[{"name":"QuotaAI.exe","size":42,"digest":"sha256:00","browser_download_url":"https://evil.example/QuotaAI.exe"}]},
- {"tag_name":"windows-preview-2027.02.01","draft":false,"assets":[{"name":"QuotaAI.exe","size":42,"browser_download_url":"https://github.com/rootseyo/QuotaAI/releases/download/windows-preview-2027.02.01/QuotaAI.exe"}]}
-]
-""";
+const string dl = "https://github.com/rootseyo/QuotaAI/releases/download/";
+static string Asset(string tag, string name = "QuotaAI.exe", long size = 42, string? digest = "sha256:00", string? url = null) =>
+    $$"""{"name":"{{name}}","size":{{size}}{{(digest is null ? "" : $",\"digest\":\"{digest}\"")}},"browser_download_url":"{{url ?? dl + tag + "/" + name}}"}""";
+static string Release(string tag, bool draft, params string[] assets) =>
+    $$"""{"tag_name":"{{tag}}","draft":{{(draft ? "true" : "false")}},"html_url":"https://github.com/rootseyo/QuotaAI/releases/tag/{{tag}}","assets":[{{string.Join(",", assets)}}]}""";
+static string Sig(string tag) => Asset(tag, "QuotaAI.exe.sig", 72, digest: null);
+
+var releasesJson = "[" + string.Join(",",
+    """{"tag_name":"macos-preview-1.13.1","draft":false,"assets":[]}""",
+    Release("windows-preview-2026.12.01", true, Asset("windows-preview-2026.12.01"), Sig("windows-preview-2026.12.01")),
+    Release("windows-preview-2026.11.27.1", false, Asset("windows-preview-2026.11.27.1", digest: "sha256:ABCDEF"), Sig("windows-preview-2026.11.27.1")),
+    Release("windows-preview-2026.11.27", false, Asset("windows-preview-2026.11.27"), Sig("windows-preview-2026.11.27")),
+    Release("windows-preview-2027.01.01", false, Asset("windows-preview-2027.01.01", url: "https://evil.example/QuotaAI.exe"), Sig("windows-preview-2027.01.01")),
+    Release("windows-preview-2027.02.01", false, Asset("windows-preview-2027.02.01", digest: null), Sig("windows-preview-2027.02.01")),
+    Release("windows-preview-2027.03.01", false, Asset("windows-preview-2027.03.01")),
+    Release("windows-preview-2027.04.01", false, Asset("windows-preview-2027.04.01", size: UpdateChecker.MaxAssetBytes + 1), Sig("windows-preview-2027.04.01"))) + "]";
 var latestRelease = UpdateChecker.SelectLatest(releasesJson);
-Check(latestRelease?.Version == new Version(2026, 11, 27, 1), "Pick the newest published, verifiable Windows release");
+Check(latestRelease?.Version == new Version(2026, 11, 27, 1),
+    "Skip drafts, foreign URLs, and releases without a digest, a signature, or a sane size");
 Check(latestRelease?.Sha256 == "abcdef", "Lowercase the asset digest");
-Check(UpdateChecker.SelectLatest("{}") is null, "Ignore non-array responses");
+Check(latestRelease?.SignatureUrl == dl + "windows-preview-2026.11.27.1/QuotaAI.exe.sig", "Pair the exe with its signature");
+Check(latestRelease?.ReleaseUrl == "https://github.com/rootseyo/QuotaAI/releases/tag/windows-preview-2026.11.27.1", "Keep the release page");
+
+Check(UpdateChecker.SafeReleaseUrl("file:///C:/Windows/System32/calc.exe") == UpdateChecker.ReleasesPageUrl, "Never open a local file");
+Check(UpdateChecker.SafeReleaseUrl("https://github.com/attacker/QuotaAI/releases/x") == UpdateChecker.ReleasesPageUrl, "Only open this repository");
+Check(UpdateChecker.SafeReleaseUrl(null) == UpdateChecker.ReleasesPageUrl, "Fall back to the releases page");
+
+using (var signer = System.Security.Cryptography.ECDsa.Create(System.Security.Cryptography.ECCurve.NamedCurves.nistP256))
+{
+    var payload = System.Security.Cryptography.SHA256.HashData("QuotaAI update"u8);
+    var signature = signer.SignHash(payload, System.Security.Cryptography.DSASignatureFormat.Rfc3279DerSequence);
+    var publicPem = signer.ExportSubjectPublicKeyInfoPem();
+    Check(UpdateChecker.VerifySignature(payload, signature, publicPem), "Accept a valid release signature");
+    var tampered = (byte[])payload.Clone();
+    tampered[0] ^= 1;
+    Check(!UpdateChecker.VerifySignature(tampered, signature, publicPem), "Reject a signature over other bytes");
+    Check(!UpdateChecker.VerifySignature(payload, signature, UpdateChecker.SigningPublicKeyPem), "Reject a signature from another key");
+    Check(!UpdateChecker.VerifySignature(payload, [1, 2, 3], publicPem), "Reject a malformed signature");
+
+    // Made in CI's format (openssl dgst -sha256 -sign) with the real release key.
+    var opensslSignature = Convert.FromBase64String(
+        "MEUCIQDvYgS93zLjIhYXNnPP4sFIfn6xqJ6w7efvSNCT/5TwBQIgZQrZCeHSBEj30WrKjAeASC67aB2dwZxWcGU7qqaxg8s=");
+    Check(UpdateChecker.VerifySignature(payload, opensslSignature, UpdateChecker.SigningPublicKeyPem),
+        "Accept an openssl signature made with the release key");
+}
+
+var publicKeyFile = FindRepoFile(Path.Combine("Windows", "update-signing.pub.pem"));
+Check(publicKeyFile is null || File.ReadAllText(publicKeyFile).Trim().ReplaceLineEndings("\n") == UpdateChecker.SigningPublicKeyPem.Trim().ReplaceLineEndings("\n"),
+    "The embedded update key must match Windows/update-signing.pub.pem (used by CI to check the signing secret)");
 
 var usage = await ReadFakeAsync("success");
 Check(usage.FiveHour?.RemainingPercent == 75, "Five-hour quota must use the 300-minute window");
@@ -210,6 +245,17 @@ static async Task ExpectAsync(string method)
 {
     using var request = JsonDocument.Parse(await Console.In.ReadLineAsync() ?? "");
     Check(request.RootElement.GetProperty("method").GetString() == method, $"Expected {method}");
+}
+
+static string? FindRepoFile(string relative)
+{
+    for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
+    {
+        var candidate = Path.Combine(dir.FullName, relative);
+        if (File.Exists(candidate))
+            return candidate;
+    }
+    return null;
 }
 
 static void Check(bool condition, string message)

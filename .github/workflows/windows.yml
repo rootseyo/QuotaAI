@@ -57,9 +57,30 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: Windows/update-signing.pub.pem
+          sparse-checkout-cone-mode: false
+          path: src
       - uses: actions/download-artifact@v4
         with:
           name: QuotaAI-Windows-x64
+      - name: Sign QuotaAI.exe for the in-app updater
+        env:
+          SIGNING_KEY: ${{ secrets.WINDOWS_UPDATE_SIGNING_KEY }}
+        run: |
+          # Fail closed: the updater rejects releases without a valid signature.
+          if [ -z "$SIGNING_KEY" ]; then
+            echo "::error::WINDOWS_UPDATE_SIGNING_KEY secret is not set"
+            exit 1
+          fi
+          umask 077
+          key="$RUNNER_TEMP/update-signing.pem"
+          printf '%s\n' "$SIGNING_KEY" > "$key"
+          openssl dgst -sha256 -sign "$key" -out QuotaAI.exe.sig QuotaAI.exe
+          rm -f "$key"
+          # The secret must match the public key embedded in the app.
+          openssl dgst -sha256 -verify src/Windows/update-signing.pub.pem -signature QuotaAI.exe.sig QuotaAI.exe
       - name: Publish Windows preview release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -67,9 +88,9 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" "QuotaAI.exe#QuotaAI for Windows (x64)" --clobber
+            gh release upload "$RELEASE_TAG" "QuotaAI.exe#QuotaAI for Windows (x64)" QuotaAI.exe.sig --clobber
           else
-            gh release create "$RELEASE_TAG" "QuotaAI.exe#QuotaAI for Windows (x64)" \
+            gh release create "$RELEASE_TAG" "QuotaAI.exe#QuotaAI for Windows (x64)" QuotaAI.exe.sig \
               --verify-tag --prerelease --latest=false \
               --title "QuotaAI Windows Preview (${RELEASE_TAG#windows-preview-})" \
               --notes "Standalone Windows x64 build. Download QuotaAI.exe to run the preview."

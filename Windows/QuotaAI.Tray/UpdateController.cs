@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using QuotaAI.Core;
 
@@ -59,10 +60,21 @@ internal static class SelfUpdater
             throw;
         }
 
-        var start = new ProcessStartInfo(exe) { UseShellExecute = false };
-        start.ArgumentList.Add("--restart-after");
-        start.ArgumentList.Add(Environment.ProcessId.ToString());
-        Process.Start(start);
+        try
+        {
+            var start = new ProcessStartInfo(exe) { UseShellExecute = false };
+            start.ArgumentList.Add("--restart-after");
+            start.ArgumentList.Add(Environment.ProcessId.ToString());
+            using var _ = Process.Start(start) ?? throw new Win32Exception("The new version did not start.");
+        }
+        catch (Exception ex) when (ex is Win32Exception or InvalidOperationException)
+        {
+            // Could not launch the new build: put the running version back so the
+            // next launch still works, and keep this instance running.
+            File.Move(exe, staged, overwrite: true);
+            File.Move(old, exe);
+            throw new UpdateException("The new version could not be started, so the update was rolled back.", ex);
+        }
     }
 }
 
@@ -210,8 +222,16 @@ internal sealed class UpdateController
     {
         var answer = MessageBox.Show($"{message}\n\nOpen the release page to download it manually?",
             "QuotaAI update", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
-        if (answer == DialogResult.Yes)
-            Process.Start(new ProcessStartInfo(info.ReleaseUrl) { UseShellExecute = true });
+        if (answer != DialogResult.Yes)
+            return;
+        try
+        {
+            Process.Start(new ProcessStartInfo(UpdateChecker.SafeReleaseUrl(info.ReleaseUrl)) { UseShellExecute = true });
+        }
+        catch (Win32Exception)
+        {
+            // No default browser; nothing else to do.
+        }
     }
 
     private static void Info(string message, MessageBoxIcon icon = MessageBoxIcon.Information) =>
