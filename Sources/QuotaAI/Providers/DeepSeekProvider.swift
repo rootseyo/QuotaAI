@@ -24,17 +24,7 @@ struct DeepSeekProvider: UsageProvider {
             throw ProviderKeyError.missingKey(displayName)
         }
 
-        var request = URLRequest(url: Self.balanceURL)
-        request.timeoutInterval = 15
-        request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-
-        let (data, response) = try await HTTP.session.data(for: request)
-        guard let http = response as? HTTPURLResponse else { throw DeepSeekError.badResponse }
-        if http.statusCode == 401 || http.statusCode == 403 {
-            throw DeepSeekError.invalidKey
-        }
-        guard http.statusCode == 200 else { throw DeepSeekError.httpStatus(http.statusCode) }
+        let data = try await HTTP.bearerJSON(Self.balanceURL, key: key, errors: DeepSeekError.self)
 
         let balance = try JSONDecoder().decode(BalanceResponse.self, from: data)
         return Self.usage(from: balance, now: Date())
@@ -122,7 +112,7 @@ struct DeepSeekProvider: UsageProvider {
     }
 }
 
-enum DeepSeekError: LocalizedError {
+enum DeepSeekError: LocalizedError, APIKeyHTTPError {
     case badResponse
     case invalidKey
     case httpStatus(Int)
@@ -131,7 +121,7 @@ enum DeepSeekError: LocalizedError {
         switch self {
         case .badResponse: return L("Unexpected response from DeepSeek")
         case .invalidKey: return L("DeepSeek key rejected — check the key in Settings")
-        case .httpStatus(let code): return L("DeepSeek returned HTTP \(code))")
+        case .httpStatus(let code): return L("DeepSeek returned HTTP \(code)")
         }
     }
 }

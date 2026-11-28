@@ -43,30 +43,15 @@ struct OpenRouterProvider: UsageProvider {
         return Self.usage(from: keyInfo, now: Date())
     }
 
-    private static func request(url: URL, key: String) -> URLRequest {
-        var request = URLRequest(url: url)
-        request.timeoutInterval = 15
-        request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        return request
-    }
-
     private static func fetchCredits(key: String) async throws -> CreditsResponse {
-        let request = request(url: creditsURL, key: key)
-        let (data, response) = try await HTTP.session.data(for: request)
-        guard let http = response as? HTTPURLResponse else { throw OpenRouterError.badResponse }
-        guard http.statusCode == 200 else { throw OpenRouterError.httpStatus(http.statusCode) }
+        // /credits may need a management key; a 403 here is not a bad key.
+        let data = try await HTTP.bearerJSON(
+            creditsURL, key: key, errors: OpenRouterError.self, rejectsKeyOnAuthFailure: false)
         return try JSONDecoder().decode(CreditsResponse.self, from: data)
     }
 
     private static func fetchKeyInfo(key: String) async throws -> KeyResponse {
-        let request = request(url: keyURL, key: key)
-        let (data, response) = try await HTTP.session.data(for: request)
-        guard let http = response as? HTTPURLResponse else { throw OpenRouterError.badResponse }
-        if http.statusCode == 401 || http.statusCode == 403 {
-            throw OpenRouterError.invalidKey
-        }
-        guard http.statusCode == 200 else { throw OpenRouterError.httpStatus(http.statusCode) }
+        let data = try await HTTP.bearerJSON(keyURL, key: key, errors: OpenRouterError.self)
         return try JSONDecoder().decode(KeyResponse.self, from: data)
     }
 
@@ -206,7 +191,7 @@ struct OpenRouterProvider: UsageProvider {
     }
 }
 
-enum OpenRouterError: LocalizedError {
+enum OpenRouterError: LocalizedError, APIKeyHTTPError {
     case badResponse
     case invalidKey
     case httpStatus(Int)

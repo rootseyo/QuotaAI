@@ -24,6 +24,13 @@ final class UsageStore: ObservableObject {
     private var refreshRequestObserver: NSObjectProtocol?
     private var codexAccountsObserver: AnyCancellable?
     private var credentialGenerations: [String: Int] = [:]
+    /// Credential generation of each provider's in-flight fetch.
+    private var inFlightGenerations: [String: Int] = [:]
+    private var pendingCodexRefresh: DispatchWorkItem?
+    /// `isDetected` results, re-evaluated once per refresh. Detection touches
+    /// the file system (and Keychain metadata for Claude), and the menu bar
+    /// reads `visibleProviders` many times per render.
+    @Published private(set) var detectedProviderIDs: Set<String> = []
 
     init(
         settings: SettingsStore,
@@ -98,9 +105,15 @@ final class UsageStore: ObservableObject {
         refresh()
     }
 
+    private func updateDetection() {
+        let detected = Set(providers.filter(\.isDetected).map(\.id))
+        if detected != detectedProviderIDs { detectedProviderIDs = detected }
+    }
+
     deinit {
         timer?.invalidate()
         sessionWatcher?.cancel()
+        pendingCodexRefresh?.cancel()
         if let credentialsObserver {
             NotificationCenter.default.removeObserver(credentialsObserver)
         }
@@ -125,7 +138,9 @@ final class UsageStore: ObservableObject {
 
     /// Providers currently visible per settings (mode + detection).
     var visibleProviders: [any UsageProvider] {
-        providers.filter { settings.mode(for: $0.id).isVisible(detected: $0.isDetected) }
+        providers.filter {
+            settings.mode(for: $0.id).isVisible(detected: detectedProviderIDs.contains($0.id))
+        }
     }
 
     func state(for providerID: String) -> ProviderState {
@@ -141,6 +156,7 @@ final class UsageStore: ObservableObject {
     }
 
     func refresh(forceRefresh: Bool = false) {
+        updateDetection()
         let providers = visibleProviders
         watchNewestCodexSession()
         lastRefreshed = Date()
@@ -160,6 +176,15 @@ final class UsageStore: ObservableObject {
 
     private func refreshProvider(_ provider: any UsageProvider, forceRefresh: Bool) async {
         let generation = credentialGenerations[provider.id, default: 0]
+        // Timer, wake, and file-watcher refreshes can overlap; one fetch per
+        // provider is enough. Forced refreshes and new credentials still run.
+        if !forceRefresh, inFlightGenerations[provider.id] == generation { return }
+        inFlightGenerations[provider.id] = generation
+        defer {
+            if inFlightGenerations[provider.id] == generation {
+                inFlightGenerations[provider.id] = nil
+            }
+        }
         do {
             let usage = try await provider.fetch(forceRefresh: forceRefresh)
             guard credentialGenerations[provider.id, default: 0] == generation else { return }
@@ -340,7 +365,7 @@ final class UsageStore: ObservableObject {
     private func watchNewestCodexSession() {
         let primaryCodex = providers.first { $0.id == "codex" }
         guard let primaryCodex,
-              settings.mode(for: "codex").isVisible(detected: primaryCodex.isDetected),
+              settings.mode(for: "codex").isVisible(detected: detectedProviderIDs.contains("codex")),
               let newest = codexReader.recentSessionFiles(limit: 1).first,
               newest != watchedFile else {
             return
@@ -359,8 +384,7 @@ final class UsageStore: ObservableObject {
             queue: .main
         )
         source.setEventHandler { [weak self] in
-            guard let self else { return }
-            Task { await self.refreshProvider(primaryCodex, forceRefresh: false) }
+            self?.scheduleCodexRefresh(primaryCodex)
         }
         source.setCancelHandler {
             close(descriptor)
@@ -368,5 +392,16 @@ final class UsageStore: ObservableObject {
         source.resume()
         sessionWatcher = source
         watchedFile = newest
+    }
+
+    /// Codex appends many events per turn; refresh once they settle.
+    private func scheduleCodexRefresh(_ provider: any UsageProvider) {
+        pendingCodexRefresh?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            Task { await self.refreshProvider(provider, forceRefresh: false) }
+        }
+        pendingCodexRefresh = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1, execute: work)
     }
 }

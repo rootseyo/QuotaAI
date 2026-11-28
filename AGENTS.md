@@ -34,11 +34,20 @@ announcement drafts, environment specifics) and complements this file.
 - UI: `MenuContent` (dropdown with a display-bounded scrolling provider list
   and a fixed footer; short lists shrink to their content; provider sections live in
   `ProviderUsageSections.swift` and are shared with `UsageDetailsView`, the
-  ⌘D / `quotaai://details` window), `SettingsWindow` (native tabbed
-  Settings: General / Providers / Display / Alerts; includes
+  ⌘D / `quotaai://details` window), `Settings/` (one file per tab of the native
+  Settings window: General / Providers / Display / Alerts; includes
   `CodexAccountsSection` with auto-discovery of `~/.codex-*` homes and
   `CodexSubscriptionSettings`), `AboutWindow`. Menu bar title is a rendered
   `NSImage` (`MenuBarTitleRenderer`) with an `accessibilityDescription`.
+- Shared plumbing: `CLITool` (`Providers/CLITool.swift`) finds and runs the
+  user's `claude`/`codex` binaries — install-path + PATH + `zsh -lc` lookup
+  (hits cached only), augmented PATH, handler-based runner with timeout.
+  API-key providers use `HTTP.bearerJSON`/`bearerGet` (`Models.swift`); their
+  error enums conform to `APIKeyHTTPError` (`badResponse`/`invalidKey`/
+  `httpStatus`) so messages stay provider-specific. `UsageStore` evaluates
+  `isDetected` once per refresh (`detectedProviderIDs`), skips a non-forced
+  fetch while the same provider is already in flight, and debounces Codex
+  session-file events by 1 s.
 - Cross-cutting: `CredentialAssessment` (key-type detection + plain-language
   explainers), `UsageMeterSeverity` (shared 60/85% thresholds, symbols,
   spoken qualifiers), `NotificationManager` (`ThresholdTracker`,
@@ -101,8 +110,8 @@ announcement drafts, environment specifics) and complements this file.
   is not printed). Plan from `claude auth status --json` (`subscriptionType`,
   hourly). Polled at most every 5 min (`ClaudeCLICache`) unless forced.
   Claude Code reads/renews its own creds, so no Keychain prompt and no expiry
-  handling. Use the handler-based runner — `Process.waitUntilExit()` hung on
-  the cooperative pool. Any CLI failure/unparsed text falls back to OAuth:
+  handling. Use `CLITool.run` — `Process.waitUntilExit()` hung on the
+  cooperative pool. Any CLI failure/unparsed text falls back to OAuth:
   OAuth creds from `~/.claude/.credentials.json`, falling back to
   Keychain item `Claude Code-credentials`. `expiresAt` is in **milliseconds**.
   READ-ONLY (macOS and Windows): QuotaAI NEVER refreshes the token. Anthropic

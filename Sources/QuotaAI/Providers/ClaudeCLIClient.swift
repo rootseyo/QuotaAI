@@ -181,133 +181,39 @@ enum ClaudeCLIClient {
         return months.firstIndex(of: String(name.lowercased().prefix(3))).map { $0 + 1 }
     }
 
-    // MARK: - Executable resolution
-
-    nonisolated(unsafe) private static var resolvedExecutableCache: URL??
-    private static let executableCacheLock = NSLock()
+    // MARK: - Executable & process
 
     static func candidatePaths(home: String, pathEnv: String?) -> [String] {
-        var paths = [
-            "\(home)/.local/bin/claude",
-            "\(home)/.claude/local/claude",
-            "/opt/homebrew/bin/claude",
-            "/usr/local/bin/claude",
-        ]
-        for entry in (pathEnv ?? "").split(separator: ":") {
-            let trimmed = entry.trimmingCharacters(in: .whitespaces)
-            if !trimmed.isEmpty { paths.append("\(trimmed)/claude") }
-        }
-        return paths
+        CLITool.claude.candidatePaths(home: home, pathEnv: pathEnv)
     }
 
     /// Cheap file-existence check used by `isDetected` (no process launch).
     static func knownExecutableExists() -> Bool {
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
-        return candidatePaths(home: home, pathEnv: nil)
-            .contains { FileManager.default.isExecutableFile(atPath: $0) }
+        CLITool.claude.knownExecutableExists()
     }
 
     static func resolveExecutable() -> URL? {
-        executableCacheLock.withLock {
-            if let cached = resolvedExecutableCache { return cached }
-            let home = FileManager.default.homeDirectoryForCurrentUser.path
-            let pathEnv = ProcessInfo.processInfo.environment["PATH"]
-            var resolved = candidatePaths(home: home, pathEnv: pathEnv)
-                .first { FileManager.default.isExecutableFile(atPath: $0) }
-                .map { URL(fileURLWithPath: $0) }
-            if resolved == nil { resolved = resolveViaShell() }
-            // Only cache hits, so installing Claude Code later is picked up.
-            if resolved != nil { resolvedExecutableCache = .some(resolved) }
-            return resolved
-        }
+        CLITool.claude.resolve()
     }
 
-    private static func resolveViaShell() -> URL? {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/zsh")
-        process.arguments = ["-lc", "command -v claude"]
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = FileHandle.nullDevice
-        do {
-            try process.run()
-            process.waitUntilExit()
-            guard process.terminationStatus == 0 else { return nil }
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            guard let path = String(data: data, encoding: .utf8)?
-                .trimmingCharacters(in: .whitespacesAndNewlines),
-                  !path.isEmpty,
-                  FileManager.default.isExecutableFile(atPath: path) else { return nil }
-            return URL(fileURLWithPath: path)
-        } catch {
-            return nil
-        }
-    }
-
-    // MARK: - Process
-
+    /// Runs `claude` from a neutral working directory so no project settings
+    /// apply, mapping process failures onto `CLIError`.
     static func run(_ executable: URL, arguments: [String], timeout: TimeInterval = 20) async throws -> Data {
-        let process = Process()
-        process.executableURL = executable
-        process.arguments = arguments
-        // A neutral working directory so no project settings apply.
-        process.currentDirectoryURL = FileManager.default.temporaryDirectory
-        var environment = ProcessInfo.processInfo.environment
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
-        // GUI apps get a minimal PATH; npm-installed Claude Code needs node.
-        environment["PATH"] = ["/opt/homebrew/bin", "/usr/local/bin", "\(home)/.local/bin", environment["PATH"] ?? "/usr/bin:/bin"]
-            .joined(separator: ":")
-        environment["NO_COLOR"] = "1"
-        process.environment = environment
-        let stdout = Pipe()
-        process.standardOutput = stdout
-        process.standardError = FileHandle.nullDevice
-        process.standardInput = FileHandle.nullDevice
-
-        // Non-blocking: `waitUntilExit()` can miss the exit notification on a
-        // cooperative-pool thread and hang forever, so use the handlers.
-        let state = RunState()
-        let group = DispatchGroup()
-        group.enter()
-        process.terminationHandler = { _ in group.leave() }
         do {
-            try process.run()
-        } catch {
-            throw CLIError.notInstalled
-        }
-        group.enter()
-        DispatchQueue.global(qos: .utility).async {
-            state.setOutput(stdout.fileHandleForReading.readDataToEndOfFile())
-            group.leave()
-        }
-        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + timeout) {
-            if process.isRunning {
-                state.markTimedOut()
-                process.terminate()
+            return try await CLITool.run(
+                executable,
+                arguments: arguments,
+                environment: CLITool.environment(adding: ["NO_COLOR": "1"]),
+                workingDirectory: FileManager.default.temporaryDirectory,
+                timeout: timeout
+            )
+        } catch let error as CLITool.RunError {
+            switch error {
+            case .launchFailed: throw CLIError.notInstalled
+            case .timeout: throw CLIError.timeout
+            case .failed(let status): throw CLIError.failed(status)
             }
         }
-
-        return try await withCheckedThrowingContinuation { continuation in
-            group.notify(queue: .global(qos: .utility)) {
-                if state.timedOut {
-                    continuation.resume(throwing: CLIError.timeout)
-                } else if process.terminationStatus != 0 {
-                    continuation.resume(throwing: CLIError.failed(process.terminationStatus))
-                } else {
-                    continuation.resume(returning: state.output)
-                }
-            }
-        }
-    }
-
-    private final class RunState: @unchecked Sendable {
-        private let lock = NSLock()
-        private var _output = Data()
-        private var _timedOut = false
-        var output: Data { lock.withLock { _output } }
-        var timedOut: Bool { lock.withLock { _timedOut } }
-        func setOutput(_ data: Data) { lock.withLock { _output = data } }
-        func markTimedOut() { lock.withLock { _timedOut = true } }
     }
 }
 

@@ -10,6 +10,45 @@ enum HTTP {
         config.httpCookieStorage = nil
         return URLSession(configuration: config)
     }()
+
+    /// A GET request authenticated with a Bearer API key.
+    static func bearerRequest(_ url: URL, key: String, timeout: TimeInterval = 15) -> URLRequest {
+        var request = URLRequest(url: url)
+        request.timeoutInterval = timeout
+        request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        return request
+    }
+
+    /// Sends a Bearer GET and returns the body and status code without
+    /// judging the status (for providers with endpoint-specific fallbacks).
+    static func bearerGet<E: APIKeyHTTPError>(
+        _ url: URL, key: String, errors: E.Type
+    ) async throws -> (data: Data, statusCode: Int) {
+        let (data, response) = try await session.data(for: bearerRequest(url, key: key))
+        guard let http = response as? HTTPURLResponse else { throw E.badResponse }
+        return (data, http.statusCode)
+    }
+
+    /// Sends a Bearer GET and returns the body of a 200 response. 401/403
+    /// become the provider's `invalidKey` (unless `rejectsKeyOnAuthFailure`
+    /// is false); any other status becomes `httpStatus`.
+    static func bearerJSON<E: APIKeyHTTPError>(
+        _ url: URL, key: String, errors: E.Type, rejectsKeyOnAuthFailure: Bool = true
+    ) async throws -> Data {
+        let (data, status) = try await bearerGet(url, key: key, errors: errors)
+        if rejectsKeyOnAuthFailure, status == 401 || status == 403 { throw E.invalidKey }
+        guard status == 200 else { throw E.httpStatus(status) }
+        return data
+    }
+}
+
+/// The error cases every API-key provider reports for HTTP failures, so the
+/// shared `HTTP.bearerJSON` helper can throw the provider's own messages.
+protocol APIKeyHTTPError: Error {
+    static var badResponse: Self { get }
+    static var invalidKey: Self { get }
+    static func httpStatus(_ code: Int) -> Self
 }
 
 /// One rate-limit window (e.g. Codex 5h window, Cursor monthly plan usage).

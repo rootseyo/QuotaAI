@@ -69,13 +69,7 @@ struct VeniceProvider: UsageProvider {
     private static func get(_ url: URL, key: String) async throws
         -> (data: Data, statusCode: Int)
     {
-        var request = URLRequest(url: url)
-        request.timeoutInterval = 15
-        request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        let (data, response) = try await HTTP.session.data(for: request)
-        guard let http = response as? HTTPURLResponse else { throw VeniceError.badResponse }
-        return (data, http.statusCode)
+        try await HTTP.bearerGet(url, key: key, errors: VeniceError.self)
     }
 
     struct BalanceResponse: Decodable {
@@ -276,7 +270,7 @@ private extension KeyedDecodingContainer {
     }
 }
 
-enum VeniceError: LocalizedError {
+enum VeniceError: LocalizedError, APIKeyHTTPError {
     case badResponse
     case invalidKey
     case apiError(String)

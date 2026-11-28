@@ -24,17 +24,7 @@ struct MoonshotProvider: UsageProvider {
             throw ProviderKeyError.missingKey(displayName)
         }
 
-        var request = URLRequest(url: Self.balanceURL)
-        request.timeoutInterval = 15
-        request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-
-        let (data, response) = try await HTTP.session.data(for: request)
-        guard let http = response as? HTTPURLResponse else { throw MoonshotError.badResponse }
-        if http.statusCode == 401 || http.statusCode == 403 {
-            throw MoonshotError.invalidKey
-        }
-        guard http.statusCode == 200 else { throw MoonshotError.httpStatus(http.statusCode) }
+        let data = try await HTTP.bearerJSON(Self.balanceURL, key: key, errors: MoonshotError.self)
 
         let balance = try JSONDecoder().decode(BalanceResponse.self, from: data)
         return Self.usage(from: balance, now: Date())
@@ -109,7 +99,7 @@ struct MoonshotProvider: UsageProvider {
     }
 }
 
-enum MoonshotError: LocalizedError {
+enum MoonshotError: LocalizedError, APIKeyHTTPError {
     case badResponse
     case invalidKey
     case httpStatus(Int)
@@ -118,7 +108,7 @@ enum MoonshotError: LocalizedError {
         switch self {
         case .badResponse: return L("Unexpected response from Kimi")
         case .invalidKey: return L("Kimi key rejected — check the key in Settings")
-        case .httpStatus(let code): return L("Kimi returned HTTP \(code))")
+        case .httpStatus(let code): return L("Kimi returned HTTP \(code)")
         }
     }
 }

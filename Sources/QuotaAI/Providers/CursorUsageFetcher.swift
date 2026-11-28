@@ -197,7 +197,7 @@ enum CursorFetchError: LocalizedError {
         case .invalidToken: return L("Cursor session token has an unexpected format")
         case .notAuthenticated: return L("Cursor session expired — sign in to Cursor again")
         case .badResponse: return L("Unexpected response from cursor.com")
-        case .httpStatus(let code): return L("cursor.com returned HTTP \(code))")
+        case .httpStatus(let code): return L("cursor.com returned HTTP \(code)")
         }
     }
 }

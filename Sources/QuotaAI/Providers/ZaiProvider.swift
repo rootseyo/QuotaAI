@@ -32,17 +32,7 @@ struct ZaiProvider: UsageProvider {
             throw ProviderKeyError.missingKey(displayName)
         }
 
-        var request = URLRequest(url: Self.quotaURL)
-        request.timeoutInterval = 15
-        request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-
-        let (data, response) = try await HTTP.session.data(for: request)
-        guard let http = response as? HTTPURLResponse else { throw ZaiError.badResponse }
-        if http.statusCode == 401 || http.statusCode == 403 {
-            throw ZaiError.invalidKey
-        }
-        guard http.statusCode == 200 else { throw ZaiError.httpStatus(http.statusCode) }
+        let data = try await HTTP.bearerJSON(Self.quotaURL, key: key, errors: ZaiError.self)
 
         let quota = try JSONDecoder().decode(QuotaResponse.self, from: data)
         if let error = Self.responseError(quota) {
@@ -167,7 +157,7 @@ struct ZaiProvider: UsageProvider {
     }
 }
 
-enum ZaiError: LocalizedError {
+enum ZaiError: LocalizedError, APIKeyHTTPError {
     case badResponse
     case invalidKey
     case noCodingPlan

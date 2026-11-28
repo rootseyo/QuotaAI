@@ -3,6 +3,20 @@
 All notable changes to AgentMeter. Format follows [Keep a Changelog](https://keepachangelog.com);
 versions follow semantic-ish `MAJOR.MINOR.PATCH`.
 
+## [1.13.3] — 2026-11-29
+
+### Fixed
+- Codex refreshes no longer hang when `codex app-server` stops answering; the
+  timeout now ends the process. Codex installed after launch is found without
+  restarting QuotaAI.
+- DeepSeek, Kimi, and Cursor HTTP errors no longer show a stray `)` and are
+  localized again.
+
+### Changed
+- Fewer redundant refreshes: provider detection runs once per refresh,
+  overlapping fetches for the same provider are skipped, and bursts of Codex
+  session activity trigger one refresh.
+
 ## [1.13.2] — 2026-11-28
 
 ### Changed

@@ -162,9 +162,8 @@ struct ClaudeAPIProvider: UsageProvider {
             parts.scheme = "https"
             parts.host = "api.anthropic.com"
             parts.path = path
-            let formatter = ISO8601DateFormatter()
-            formatter.timeZone = TimeZone(secondsFromGMT: 0)!
-            formatter.formatOptions = [.withInternetDateTime]
+            // `.plain` formats in UTC (ISO8601DateFormatter's default zone).
+            let formatter = ISO8601DateFormatter.plain
             parts.queryItems = [
                 URLQueryItem(name: "starting_at", value: formatter.string(from: start)),
                 URLQueryItem(name: "ending_at", value: formatter.string(from: end)),
