@@ -102,7 +102,7 @@ internal sealed class TrayApplication : ApplicationContext
 
         widget.Show();
         _ = coordinator.RefreshAsync(forceRefresh: false);
-        _ = updates.AutoCheckAsync();
+        updates.Start();
     }
 
     private void OnStateOrSettingsUpdated()
@@ -179,6 +179,7 @@ internal sealed class TrayApplication : ApplicationContext
             menu.Dispose();
             widget.Dispose();
             coordinator.Dispose();
+            updates?.Dispose();
             icon.Dispose();
         }
         base.Dispose(disposing);

@@ -28,7 +28,7 @@ public sealed record WidgetSettings(int? X = null, int? Y = null, bool AlwaysOnT
             using var stream = File.OpenRead(target);
             return JsonSerializer.Deserialize<WidgetSettings>(stream, JsonOptions) ?? new WidgetSettings();
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        catch (Exception ex) when (FileErrors.Is(ex) || ex is JsonException)
         {
             return new WidgetSettings();
         }
@@ -47,7 +47,7 @@ public sealed record WidgetSettings(int? X = null, int? Y = null, bool AlwaysOnT
             File.WriteAllText(temp, JsonSerializer.Serialize(this, JsonOptions));
             File.Move(temp, target, overwrite: true);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (FileErrors.Is(ex))
         {
             // Ignore transient file-system errors; widget settings are non-critical UI state.
         }

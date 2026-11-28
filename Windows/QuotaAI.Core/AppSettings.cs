@@ -120,7 +120,7 @@ public sealed class AppSettings
                 }
             }
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        catch (Exception ex) when (FileErrors.Is(ex) || ex is JsonException)
         {
         }
 
@@ -141,7 +141,7 @@ public sealed class AppSettings
             File.WriteAllText(temp, JsonSerializer.Serialize(this, JsonOptions));
             File.Move(temp, target, overwrite: true);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (FileErrors.Is(ex))
         {
         }
     }

@@ -194,7 +194,7 @@ public static class UpdateChecker
         }
         catch
         {
-            TryDelete(destination);
+            FileErrors.TryDelete(destination);
             throw;
         }
     }
@@ -237,11 +237,6 @@ public static class UpdateChecker
 
     private static bool IsOwnDownload(string? url) =>
         url is not null && url.StartsWith(DownloadPrefix, StringComparison.Ordinal);
-
-    private static void TryDelete(string path)
-    {
-        try { File.Delete(path); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
-    }
 
     private static string? Str(JsonElement element, string name) =>
         element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;

@@ -303,7 +303,7 @@ public static class StatusSnapshotWriter
             File.WriteAllText(temp, JsonSerializer.Serialize(payload, JsonOptions));
             File.Move(temp, path, overwrite: true);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (FileErrors.Is(ex))
         {
         }
     }

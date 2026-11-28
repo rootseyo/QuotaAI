@@ -332,7 +332,7 @@ public static class CodexAccountDiscovery
                 results.Add(new Candidate(label, $@"~\{name}"));
             }
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (FileErrors.Is(ex))
         {
         }
 
