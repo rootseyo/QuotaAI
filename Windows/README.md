@@ -19,6 +19,17 @@ app (**General**, **Providers**, **Display**, and **Alerts**).
 - API keys entered in Settings are stored only in **Windows Credential Manager**
   (never in plaintext files on disk) and sent only to each provider's own API.
 
+## Updates
+
+QuotaAI checks this repository's GitHub Releases once a day (toggle in
+**Settings → General → Updates**, or use **Check for updates…** in the tray
+menu). When a newer `windows-preview-<version>` release exists it downloads
+`QuotaAI.exe`, verifies the SHA-256 digest GitHub publishes for the asset,
+swaps the executable, and restarts. If the folder is not writable, it offers the
+release page instead. Development builds (version `0.0.0`) never self-update.
+Updating requires a release built with this feature; older builds must be
+replaced manually once.
+
 ## Development
 
 Use the .NET 10 SDK. These commands build the app and run the integration tests

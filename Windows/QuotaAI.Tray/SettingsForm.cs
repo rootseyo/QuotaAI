@@ -18,8 +18,11 @@ internal sealed class SettingsForm : Form
     private Label alertFooterLabel = null!;
     private CheckBox widgetPinToggle = null!;
 
-    public SettingsForm(Icon icon, UsageCoordinator usageCoordinator, Action<bool> setWidgetPinned)
+    private readonly UpdateController updates;
+
+    public SettingsForm(Icon icon, UsageCoordinator usageCoordinator, Action<bool> setWidgetPinned, UpdateController updateController)
     {
+        updates = updateController;
         coordinator = usageCoordinator;
         settings = coordinator.Settings;
 
@@ -83,6 +86,45 @@ internal sealed class SettingsForm : Form
                 launchToggle.Checked = StartupRegistration.IsEnabled();
         };
         startupCard.Controls.Add(launchToggle);
+
+        var updatesCard = CreateSectionCard(stack, "Updates");
+        var autoUpdateToggle = new CheckBox
+        {
+            Text = "Check for updates automatically (once a day, via GitHub)",
+            AutoSize = true,
+            Checked = settings.AutoCheckForUpdates,
+            Margin = new Padding(0, S(4), 0, S(4))
+        };
+        autoUpdateToggle.CheckedChanged += (_, _) =>
+        {
+            settings.AutoCheckForUpdates = autoUpdateToggle.Checked;
+            SaveAndNotify();
+        };
+        var updateRow = CreateHorizontalRow();
+        var checkUpdatesButton = new Button
+        {
+            Text = "Check for updates…",
+            AutoSize = true,
+            Margin = new Padding(0, S(2), S(10), S(2))
+        };
+        checkUpdatesButton.Click += async (_, _) =>
+        {
+            checkUpdatesButton.Enabled = false;
+            try { await updates.CheckInteractiveAsync(); }
+            finally { checkUpdatesButton.Enabled = true; }
+        };
+        updateRow.Controls.Add(checkUpdatesButton);
+        updateRow.Controls.Add(new Label
+        {
+            Text = $"Current version: {updates.VersionText}",
+            AutoSize = true,
+            ForeColor = SystemColors.GrayText,
+            Margin = new Padding(0, S(8), 0, 0)
+        });
+        updatesCard.Controls.Add(autoUpdateToggle);
+        updatesCard.Controls.Add(updateRow);
+        updatesCard.Controls.Add(CreateCaptionLabel(
+            "Downloads QuotaAI.exe from this project's GitHub Releases, verifies its SHA-256, then restarts. Nothing about you is sent."));
 
         // 2. Agent & CLI Snapshot
         var agentCard = CreateSectionCard(stack, "Agent & CLI Access");

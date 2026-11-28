@@ -24,6 +24,8 @@ public sealed class AppSettings
     public TrayBarStyle TrayBarStyle { get; set; } = TrayBarStyle.Full;
     public Dictionary<string, int> RemainingColorOverrides { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public bool AgentAccessEnabled { get; set; }
+    public bool AutoCheckForUpdates { get; set; } = true;
+    public DateTimeOffset? LastUpdateCheckUtc { get; set; }
     public Dictionary<string, ProviderMode> ProviderModes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, bool> ProviderShowInTray { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public List<CodexAccountConfig> CodexExtraAccounts { get; set; } = [];

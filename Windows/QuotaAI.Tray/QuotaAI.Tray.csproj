@@ -9,6 +9,8 @@
     <Nullable>enable</Nullable>
     <AssemblyName>QuotaAI</AssemblyName>
     <ApplicationIcon>QuotaAI.ico</ApplicationIcon>
+    <!-- 0.0.0 marks a development build (self-update disabled). Release builds pass -p:Version=<tag version>. -->
+    <Version>0.0.0</Version>
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="QuotaAI.ico" LogicalName="QuotaAI.ico" />

@@ -15,6 +15,8 @@ internal sealed class TrayApplication : ApplicationContext
     private readonly ToolStripMenuItem pin;
     private readonly ToolStripMenuItem refresh;
     private SettingsForm? settingsForm;
+    private UpdateController? updates;
+    private bool lastBalloonWasUpdate;
     private bool exiting;
 
     public TrayApplication()
@@ -31,6 +33,7 @@ internal sealed class TrayApplication : ApplicationContext
         };
         refresh = new ToolStripMenuItem("Refresh now", null, async (_, _) => await coordinator.RefreshAsync(forceRefresh: true));
         var settingsItem = new ToolStripMenuItem("Settings…", null, (_, _) => OpenSettings());
+        var updateItem = new ToolStripMenuItem("Check for updates…", null, async (_, _) => await updates!.CheckInteractiveAsync());
         menu.Items.AddRange(
         [
             visibility,
@@ -38,6 +41,7 @@ internal sealed class TrayApplication : ApplicationContext
             refresh,
             new ToolStripSeparator(),
             settingsItem,
+            updateItem,
             new ToolStripSeparator(),
             new ToolStripMenuItem("Exit QuotaAI", null, async (_, _) => await ExitAsync())
         ]);
@@ -50,6 +54,18 @@ internal sealed class TrayApplication : ApplicationContext
             Text = coordinator.BuildTrayTooltip(),
             ContextMenuStrip = menu,
             Visible = true
+        };
+        updates = new UpdateController(settings, icon, (title, body) =>
+        {
+            if (exiting)
+                return;
+            lastBalloonWasUpdate = true;
+            tray.ShowBalloonTip(8000, title, body, ToolTipIcon.Info);
+        }, ExitAsync);
+        tray.BalloonTipClicked += (_, _) =>
+        {
+            if (lastBalloonWasUpdate)
+                updates.OnUpdateBalloonClicked();
         };
         tray.MouseClick += (_, e) =>
         {
@@ -77,13 +93,16 @@ internal sealed class TrayApplication : ApplicationContext
         coordinator.StateChanged += (_, _) => OnStateOrSettingsUpdated();
         coordinator.NotificationRequested += (title, body) =>
         {
-            if (!exiting)
-                tray.ShowBalloonTip(5000, title, body, ToolTipIcon.Info);
+            if (exiting)
+                return;
+            lastBalloonWasUpdate = false;
+            tray.ShowBalloonTip(5000, title, body, ToolTipIcon.Info);
         };
         settings.Changed += OnStateOrSettingsUpdated;
 
         widget.Show();
         _ = coordinator.RefreshAsync(forceRefresh: false);
+        _ = updates.AutoCheckAsync();
     }
 
     private void OnStateOrSettingsUpdated()
@@ -108,7 +127,7 @@ internal sealed class TrayApplication : ApplicationContext
             return;
         }
 
-        settingsForm = new SettingsForm(icon, coordinator, widget.SetPinned);
+        settingsForm = new SettingsForm(icon, coordinator, widget.SetPinned, updates!);
         settingsForm.Show();
         settingsForm.Activate();
     }

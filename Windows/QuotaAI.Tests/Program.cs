@@ -13,6 +13,27 @@ var hostArgs = Path.GetFileNameWithoutExtension(executable) == "dotnet"
     ? new[] { System.Reflection.Assembly.GetExecutingAssembly().Location }
     : Array.Empty<string>();
 
+Check(UpdateChecker.ParseTag("windows-preview-2026.11.27.1") == new Version(2026, 11, 27, 1), "Parse a four-part tag");
+Check(UpdateChecker.ParseTag("windows-preview-1.13.1") == new Version(1, 13, 1, 0), "Normalize a three-part tag");
+Check(UpdateChecker.ParseTag("macos-preview-1.13.1") is null, "Ignore macOS tags");
+Check(UpdateChecker.ParseTag("windows-preview-banana") is null, "Ignore malformed tags");
+Check(UpdateChecker.Normalize(new Version(2026, 11, 27)) < new Version(2026, 11, 27, 1), "Date build order");
+
+const string releasesJson = """
+[
+ {"tag_name":"macos-preview-1.13.1","draft":false,"assets":[]},
+ {"tag_name":"windows-preview-2026.12.01","draft":true,"html_url":"https://x","assets":[{"name":"QuotaAI.exe","size":1,"digest":"sha256:aa","browser_download_url":"https://github.com/rootseyo/QuotaAI/releases/download/windows-preview-2026.12.01/QuotaAI.exe"}]},
+ {"tag_name":"windows-preview-2026.11.27.1","draft":false,"html_url":"https://github.com/rootseyo/QuotaAI/releases/tag/windows-preview-2026.11.27.1","assets":[{"name":"QuotaAI.exe","size":42,"digest":"sha256:ABCDEF","browser_download_url":"https://github.com/rootseyo/QuotaAI/releases/download/windows-preview-2026.11.27.1/QuotaAI.exe"}]},
+ {"tag_name":"windows-preview-2026.11.27","draft":false,"assets":[{"name":"QuotaAI.exe","size":42,"digest":"sha256:00","browser_download_url":"https://github.com/rootseyo/QuotaAI/releases/download/windows-preview-2026.11.27/QuotaAI.exe"}]},
+ {"tag_name":"windows-preview-2027.01.01","draft":false,"assets":[{"name":"QuotaAI.exe","size":42,"digest":"sha256:00","browser_download_url":"https://evil.example/QuotaAI.exe"}]},
+ {"tag_name":"windows-preview-2027.02.01","draft":false,"assets":[{"name":"QuotaAI.exe","size":42,"browser_download_url":"https://github.com/rootseyo/QuotaAI/releases/download/windows-preview-2027.02.01/QuotaAI.exe"}]}
+]
+""";
+var latestRelease = UpdateChecker.SelectLatest(releasesJson);
+Check(latestRelease?.Version == new Version(2026, 11, 27, 1), "Pick the newest published, verifiable Windows release");
+Check(latestRelease?.Sha256 == "abcdef", "Lowercase the asset digest");
+Check(UpdateChecker.SelectLatest("{}") is null, "Ignore non-array responses");
+
 var usage = await ReadFakeAsync("success");
 Check(usage.FiveHour?.RemainingPercent == 75, "Five-hour quota must use the 300-minute window");
 Check(usage.Weekly?.RemainingPercent == 42, "Weekly quota must use the 10,080-minute window");
