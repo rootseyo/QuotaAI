@@ -2,10 +2,15 @@ import CryptoKit
 import Foundation
 import Security
 
-/// Claude Code usage from Anthropic's OAuth usage endpoint, authenticated with
-/// the token that the Claude CLI stores locally (credentials file or Keychain).
+/// Claude Code subscription usage.
 ///
-/// Read-only: the token is read fresh on each fetch and never refreshed here.
+/// Primary source: the user's `claude` CLI (`claude -p /usage`, see
+/// `ClaudeCLIClient`). Claude Code reads and renews its own credentials, so
+/// QuotaAI does not read the Keychain and expired tokens are not a concern.
+///
+/// Fallback (CLI missing or its output unrecognised): Anthropic's OAuth usage
+/// endpoint with the token Claude Code stores locally (credentials file or
+/// Keychain). Read-only: the token is read fresh on each fetch and never refreshed here.
 /// Anthropic refresh tokens are single-use, so refreshing Claude Code's token
 /// would sign Claude Code out. When the stored token has expired we report it
 /// and wait for Claude Code to renew it the next time it runs.
@@ -20,8 +25,12 @@ struct ClaudeProvider: UsageProvider {
     var transport: ClaudeTransport = .live
     /// Overrides the on-disk/Keychain lookup (tests only).
     var credentialsLoader: (@Sendable () throws -> Credentials)?
+    /// Primary CLI source; nil disables it.
+    var cli: ClaudeCLISource? = .live
+    var cliCache: ClaudeCLICache = ClaudeProvider.sharedCLICache
 
     static let sharedCache = ClaudeSessionCache()
+    static let sharedCLICache = ClaudeCLICache()
 
     static let usageURL = URL(string: "https://api.anthropic.com/api/oauth/usage")!
     static let betaHeader = "oauth-2025-04-20"
@@ -29,6 +38,7 @@ struct ClaudeProvider: UsageProvider {
 
     var isDetected: Bool {
         FileManager.default.fileExists(atPath: credentialsPath)
+            || ClaudeCLIClient.knownExecutableExists()
             || Self.keychainItemExists(service: keychainService)
     }
 
@@ -41,6 +51,27 @@ struct ClaudeProvider: UsageProvider {
     }
 
     func fetch(forceRefresh: Bool) async throws -> ProviderUsage {
+        if let cli, let executable = cli.executable() {
+            do {
+                return try await fetchViaCLI(cli, executable: executable, forceRefresh: forceRefresh)
+            } catch {
+                DebugLog.write("claude cli: failed (\(error)); falling back to OAuth usage")
+            }
+        }
+        return try await fetchViaOAuth(forceRefresh: forceRefresh)
+    }
+
+    func fetchViaCLI(_ cli: ClaudeCLISource, executable: URL, forceRefresh: Bool) async throws -> ProviderUsage {
+        let now = Date()
+        let (reading, readAt) = try await cliCache.reading(now: now, forceRefresh: forceRefresh) {
+            try await cli.readUsage(executable)
+        }
+        let plan = (try? await cliCache.plan(now: now) { try await cli.readPlan(executable) }) ?? nil
+        DebugLog.write("claude cli: ok (5h: \(reading.fiveHour != nil), weekly: \(reading.weekly != nil))")
+        return Self.usage(from: reading, plan: plan, asOf: readAt)
+    }
+
+    func fetchViaOAuth(forceRefresh: Bool) async throws -> ProviderUsage {
         let stored = try credentialsLoader?() ?? loadCredentials()
         let now = Date()
         let response = try await cache.usage(
@@ -163,6 +194,19 @@ struct ClaudeProvider: UsageProvider {
         }
     }
 
+    static func usage(from reading: ClaudeCLIClient.Reading, plan: String?, asOf: Date) -> ProviderUsage {
+        func window(_ w: ClaudeCLIClient.Reading.Window?, _ label: String) -> UsageWindow? {
+            w.map { UsageWindow(label: label, usedPercent: $0.usedPercent, resetsAt: $0.resetsAt) }
+        }
+        let windows = [
+            window(reading.fiveHour, L("5h limit")),
+            window(reading.weekly, L("Weekly limit")),
+            window(reading.weeklyOpus, L("Weekly (Opus)")),
+            window(reading.weeklySonnet, L("Weekly (Sonnet)")),
+        ].compactMap { $0 }
+        return ProviderUsage(planName: plan?.capitalized, windows: windows, asOf: asOf)
+    }
+
     static func usage(from response: UsageResponse, plan: String?, now: Date) -> ProviderUsage {
         func window(_ w: UsageResponse.Window?, _ label: String) -> UsageWindow? {
             guard let w, let utilization = w.utilization else { return nil }
@@ -205,6 +249,19 @@ struct ClaudeProvider: UsageProvider {
         guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess else { return nil }
         return result as? Data
     }
+}
+
+/// Seam over the `claude` CLI so the provider can be tested without it.
+struct ClaudeCLISource: Sendable {
+    var executable: @Sendable () -> URL?
+    var readUsage: @Sendable (URL) async throws -> ClaudeCLIClient.Reading
+    var readPlan: @Sendable (URL) async throws -> String?
+
+    static let live = ClaudeCLISource(
+        executable: { ClaudeCLIClient.resolveExecutable() },
+        readUsage: { try await ClaudeCLIClient.readUsage(executable: $0) },
+        readPlan: { try await ClaudeCLIClient.readPlan(executable: $0) }
+    )
 }
 
 /// Network seam so the session logic can be tested without Anthropic.

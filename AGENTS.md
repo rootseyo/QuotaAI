@@ -92,7 +92,18 @@ announcement drafts, environment specifics) and complements this file.
   `individualUsage.plan.{totalPercentUsed,autoPercentUsed,apiPercentUsed}`,
   with fallbacks to `individualUsage.overall` and `teamUsage.pooled`
   (used/limit cents) for team/enterprise accounts.
-- **Claude**: OAuth creds from `~/.claude/.credentials.json`, falling back to
+- **Claude** (macOS): PRIMARY source is the user's `claude` CLI
+  (`ClaudeCLIClient`): `claude -p /usage --output-format json
+  --no-session-persistence --settings '{"disableAllHooks":true}'` runs the
+  local `/usage` command (no model call, ~1.5 s, cwd = temp dir) and its JSON
+  `result` text is parsed (`Current session: N% used · resets Nov 28 at
+  9:40pm (Asia/Seoul)`, `Current week (all models|Sonnet only|Opus): …`; year
+  is not printed). Plan from `claude auth status --json` (`subscriptionType`,
+  hourly). Polled at most every 5 min (`ClaudeCLICache`) unless forced.
+  Claude Code reads/renews its own creds, so no Keychain prompt and no expiry
+  handling. Use the handler-based runner — `Process.waitUntilExit()` hung on
+  the cooperative pool. Any CLI failure/unparsed text falls back to OAuth:
+  OAuth creds from `~/.claude/.credentials.json`, falling back to
   Keychain item `Claude Code-credentials`. `expiresAt` is in **milliseconds**.
   READ-ONLY (macOS and Windows): QuotaAI NEVER refreshes the token. Anthropic
   refresh tokens are single-use, so refreshing Claude Code's token would sign

@@ -3,7 +3,17 @@
 All notable changes to AgentMeter. Format follows [Keep a Changelog](https://keepachangelog.com);
 versions follow semantic-ish `MAJOR.MINOR.PATCH`.
 
-## [Unreleased]
+## [1.13.2] — 2026-11-28
+
+### Changed
+- macOS Claude: usage is now read through your own `claude` CLI (`/usage`,
+  no model call). QuotaAI no longer needs to read the Claude Code Keychain
+  item, so there is no Keychain prompt and expired tokens renew on their
+  own. Hooks are disabled and no session is saved for these polls. Falls
+  back to the OAuth usage endpoint if the CLI is missing or its output
+  changes. Polled at most every 5 minutes unless refreshed manually.
+
+## [1.13.1] — 2026-11-27
 
 ### Changed
 - Claude is now read-only on macOS and Windows: QuotaAI no longer refreshes
