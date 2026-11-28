@@ -43,10 +43,7 @@ dotnet build Windows/QuotaAI.Tray -c Release
 dotnet run --project Windows/QuotaAI.Tests -c Release
 ```
 
-The **Windows preview** GitHub Actions workflow publishes a self-contained
-single-file Windows x64 executable in the `QuotaAI-Windows-x64` artifact.
-Pushing a `windows-preview-*` tag also publishes that executable as a GitHub
-prerelease without changing the latest stable release. The release job signs
-the executable with the `WINDOWS_UPDATE_SIGNING_KEY` repository secret (the
-PEM private key matching `Windows/update-signing.pub.pem`) and fails if the
-secret is missing or does not match, so unsigned releases are never published.
+The **Windows preview** GitHub Actions workflow builds and tests every change
+and uploads a development build (version `0.0.0`) as the `QuotaAI-Windows-x64`
+artifact. It does not publish releases. Releases are cut locally; see
+[docs/RELEASING.md](../docs/RELEASING.md#windows-preview-releases).

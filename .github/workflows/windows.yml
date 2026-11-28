@@ -1,9 +1,13 @@
 name: Windows preview
 
+# Build and test check only. Releases are built, signed, and published locally
+# with scripts/release-windows.ps1 so the update-signing key never leaves the
+# release machine. Artifacts here are development builds (version 0.0.0) and
+# never self-update.
+
 on:
   push:
     branches: [main]
-    tags: ['windows-preview-*']
     paths:
       - 'Windows/**'
       - 'Sources/QuotaAI/Resources/ProviderIcons/**'
@@ -26,23 +30,11 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-      - name: Test Codex integration
+      - name: Test Windows app
         run: dotnet run --project Windows/QuotaAI.Tests -c Release
-      - name: Resolve app version
-        id: version
-        shell: bash
-        run: |
-          # Tagged builds embed the tag's version (used by the in-app updater);
-          # untagged CI builds stay 0.0.0 = development build.
-          if [[ "$GITHUB_REF" == refs/tags/windows-preview-* ]]; then
-            echo "value=${GITHUB_REF_NAME#windows-preview-}" >> "$GITHUB_OUTPUT"
-          else
-            echo "value=0.0.0" >> "$GITHUB_OUTPUT"
-          fi
       - name: Publish Windows x64
         run: >-
           dotnet publish Windows/QuotaAI.Tray -c Release -r win-x64
-          -p:Version=${{ steps.version.outputs.value }}
           --self-contained -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
           -o out/windows-x64
       - uses: actions/upload-artifact@v4
@@ -50,48 +42,3 @@ jobs:
           name: QuotaAI-Windows-x64
           path: out/windows-x64/QuotaAI.exe
           if-no-files-found: error
-  release:
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/windows-preview-')
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          sparse-checkout: Windows/update-signing.pub.pem
-          sparse-checkout-cone-mode: false
-          path: src
-      - uses: actions/download-artifact@v4
-        with:
-          name: QuotaAI-Windows-x64
-      - name: Sign QuotaAI.exe for the in-app updater
-        env:
-          SIGNING_KEY: ${{ secrets.WINDOWS_UPDATE_SIGNING_KEY }}
-        run: |
-          # Fail closed: the updater rejects releases without a valid signature.
-          if [ -z "$SIGNING_KEY" ]; then
-            echo "::error::WINDOWS_UPDATE_SIGNING_KEY secret is not set"
-            exit 1
-          fi
-          umask 077
-          key="$RUNNER_TEMP/update-signing.pem"
-          printf '%s\n' "$SIGNING_KEY" > "$key"
-          openssl dgst -sha256 -sign "$key" -out QuotaAI.exe.sig QuotaAI.exe
-          rm -f "$key"
-          # The secret must match the public key embedded in the app.
-          openssl dgst -sha256 -verify src/Windows/update-signing.pub.pem -signature QuotaAI.exe.sig QuotaAI.exe
-      - name: Publish Windows preview release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: ${{ github.ref_name }}
-        run: |
-          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" "QuotaAI.exe#QuotaAI for Windows (x64)" QuotaAI.exe.sig --clobber
-          else
-            gh release create "$RELEASE_TAG" "QuotaAI.exe#QuotaAI for Windows (x64)" QuotaAI.exe.sig \
-              --verify-tag --prerelease --latest=false \
-              --title "QuotaAI Windows Preview (${RELEASE_TAG#windows-preview-})" \
-              --notes "Standalone Windows x64 build. Download QuotaAI.exe to run the preview."
-          fi
